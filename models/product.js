@@ -25,4 +25,4 @@ const ProductSchema = Mongoose.Schema({
   }
 }) 
 
-module.exports = Mongoose.model("Tokens", ProductSchema)
+module.exports = Mongoose.model("Products", ProductSchema)
