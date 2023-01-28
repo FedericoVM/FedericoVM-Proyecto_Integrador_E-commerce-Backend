@@ -77,7 +77,26 @@ const login = async (req, res) => {
     }
 }
 
+const mostrarUsuarios = async (req,res) => {
+
+    const usuarios = await userModel.find();
+
+    try {
+        if (usuarios.length === 0) {
+            return res.status(200).send({mensaje:"No hay usuarios para mostrar"}) 
+        } else {
+            return res.status(200).send(usuarios) 
+        }
+        
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({mensaje:"Se produjo un error a la hora de traer a los usuarios"})
+    }
+}
+
+
 module.exports = {
     registro,
-    login
+    login,
+    mostrarUsuarios
 }

@@ -19,7 +19,7 @@ const crearToken = (usuario) => {
 
 const decode = (token) => {
 
-    return jwt.verify(token,payload,process.env.JWT_SECRET_KET)
+    return jwt.verify(token,process.env.JWT_SECRET_KET)
 
 }
 
