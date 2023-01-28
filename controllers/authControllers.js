@@ -77,7 +77,24 @@ const login = async (req, res) => {
     }
 }
 
+const borrarUsuario = async (req,res) => {
+
+    const {id} = req.params
+
+    try {
+        await userModel.findByIdAndDelete(id)
+        res.status(200).send({mensaje:"El usuario fue eliminado"})
+    } catch (error) {
+        console.log(error);
+        res.status(400).send({mensaje:"Ocurrio un error al intentar borrar el usuario"})
+    }
+    
+}
+
+
+
 module.exports = {
     registro,
-    login
+    login,
+    borrarUsuario
 }
