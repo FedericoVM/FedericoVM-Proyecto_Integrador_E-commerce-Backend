@@ -9,9 +9,11 @@ const crearToken = (usuario) => {
 
     const payload = {
         id_usuario : usuario._id,
+        nombre: usuario.nombre,
         iat : Date.now(),
-        expiracion: expiracionToken.getTime(),
-        role : usuario.role
+        imagen: usuario.avatar,
+        role : usuario.role,
+        expiracion: expiracionToken.getTime()
     }
 
     return jwt.sign(payload,process.env.JWT_SECRET_KET)
@@ -19,7 +21,7 @@ const crearToken = (usuario) => {
 
 const decode = (token) => {
 
-    return jwt.verify(token,payload,process.env.JWT_SECRET_KET)
+    return jwt.verify(token,process.env.JWT_SECRET_KET)
 
 }
 
