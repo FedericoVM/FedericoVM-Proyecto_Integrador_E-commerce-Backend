@@ -1,8 +1,9 @@
 const express = require("express");
+require("dotenv").config();
 const conectarBD = require("./dataBase");
 const app = express()
 const AuthRouter = require("./routes/auth")
-require("dotenv").config();
+
 
 const bodyParser = require("body-parser");
 

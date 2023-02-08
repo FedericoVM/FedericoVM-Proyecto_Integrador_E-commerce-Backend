@@ -1,13 +1,14 @@
 const userModel = require("../models/user");
-const byCrypt = require("bcryptjs")
-const jwt_util = require("../utils/jwt")
-
+const byCrypt = require("bcryptjs");
+const jwt_util = require("../utils/jwt");
+const cloudinary = require("../utils/cloudinary");
+const imagen_url = require("../utils/image");
 
 
 
 const registro = async (req, res) => {
 
-    const { nombre, apellido, edad, email, password } = req.body
+    const { nombre, apellido, edad, email, password,avatar } = req.body
 
     if (!email) {
         res.status(400).send({ mensaje: "Debe ingresar un email" })
@@ -16,6 +17,10 @@ const registro = async (req, res) => {
     if (!password) {
         res.status(400).send({ mensaje: "Debe ingresar un password" })
     }
+    
+
+
+   
 
     const nuevoUsuario = new userModel({
         nombre,
@@ -23,13 +28,31 @@ const registro = async (req, res) => {
         edad,
         email: email.toLowerCase(),
         role: "Usuario",
-        avatar:""
+        avatar
     })
+
+    try {
+        if(req.files.avatar) {
+            const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
+            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
+        
+            nuevoUsuario.avatar = archivoImagen.url
+            nuevoUsuario.cloudinary_id =archivoImagen.public_id
+        } else (
+           res.status(400).send({mensaje:"No se ingreso ninguna imagen"})
+        )
+       
+    } catch (error) {
+       return res.status(400).send({mensaje:"Error a la hora de subir la imagen"})
+    }
+   
 
 
     const salt = byCrypt.genSaltSync(Number(process.env.SALT));
     const passwordHasheado = byCrypt.hashSync(password, salt);
     nuevoUsuario.password = passwordHasheado
+
+
 
     try {
         const usuario = await nuevoUsuario.save()
@@ -38,10 +61,10 @@ const registro = async (req, res) => {
 
         if (error.code === 11000) {
 
-            res.status(500).send({ msj: "Ya se encuentra registrado un usuario con ese email" })
+           return res.status(500).send({ msj: "Ya se encuentra registrado un usuario con ese email" })
         }
 
-        res.status(500).send({ msj: "Ocurrio un error a la hora de registrarse" })
+       return res.status(500).send({ msj: "Ocurrio un error a la hora de registrarse" })
     }
 
 
