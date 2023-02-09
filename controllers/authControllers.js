@@ -88,9 +88,7 @@ const login = async (req, res) => {
             const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password)
 
             if (isMatch) {
-                const tokenUsuario =  jwt_util.crearToken(usuarioEncontrado)
-                console.log(tokenUsuario);
-                return res.status(200).send( jwt_util.decode(tokenUsuario))
+                return res.status(200).send(tokenUsuario)
             } else {
                 return res.status(400).send({ mensaje: "Contraseña incorrecta" })
             }
