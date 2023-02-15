@@ -88,7 +88,7 @@ const login = async (req, res) => {
             const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password)
 
             if (isMatch) {
-                return res.status(200).send(tokenUsuario)
+                return res.status(200).send({token:jwt_util.crearToken(usuarioEncontrado)})
             } else {
                 return res.status(400).send({ mensaje: "Contraseña incorrecta" })
             }
@@ -101,7 +101,39 @@ const login = async (req, res) => {
     }
 }
 
+const editarUsuario = async (req,res) => {
+    const {id} = req.params
+    const nuevaInfo = req.body
+
+    const usuarioDB = await userModel.findById(id)
+   
+
+
+    try {
+
+        if (usuarioDB.cloudinary_id) {
+            await cloudinary.uploader.destroy(usuarioDB)
+        }
+    
+        if (req.files.avatar) {
+            const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
+            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
+        
+            nuevaInfo.avatar = archivoImagen.url
+            nuevaInfo.cloudinary_id =archivoImagen.public_id
+        }
+
+
+        await userModel.findByIdAndUpdate(id, nuevaInfo)
+        console.log(nuevaInfo);
+        res.status(200).send({mensaje:"Los datos fueron actualizados"})
+    } catch (error) {
+        res.status(500).send({mensaje:"Ocurrio un error a la hora actualizar la informacion "})
+    }
+}
+
 module.exports = {
     registro,
-    login
+    login,
+    editarUsuario
 }
