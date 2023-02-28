@@ -132,8 +132,11 @@ const editarUsuario = async (req,res) => {
     }
 }
 
+
+
 module.exports = {
     registro,
     login,
-    editarUsuario
+    editarUsuario,
+    recuperarContrasenia
 }
