@@ -8,5 +8,5 @@ const multipartyMiddleware = multiparty({uploadDir:"./uploads/avatar"});
 router.post("/registro",multipartyMiddleware, AuthControllers.registro);
 router.post("/login", AuthControllers.login);
 router.put("/editar/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.editarUsuario);
-router.put("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
+router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
 module.exports = router
