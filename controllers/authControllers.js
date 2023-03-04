@@ -1,8 +1,12 @@
 const userModel = require("../models/user");
+const tokenModel = require("../models/token")
 const byCrypt = require("bcryptjs");
 const jwt_util = require("../utils/jwt");
 const cloudinary = require("../utils/cloudinary");
+const crypto = require("crypto")
 const imagen_url = require("../utils/image");
+const nodemailer = require("../utils/nodemailer")
+
 
 
 
@@ -27,7 +31,7 @@ const registro = async (req, res) => {
         apellido,
         edad,
         email: email.toLowerCase(),
-        role: "Usuario",
+        role: "admin",
         avatar
     })
 
@@ -56,6 +60,17 @@ const registro = async (req, res) => {
 
     try {
         const usuario = await nuevoUsuario.save()
+
+        const token = await tokenModel({
+            usuarioId: usuario._id,
+            token: crypto.randomBytes(32).toString("hex"),
+        })
+
+        await token.save();
+
+        const link = `${process.env.URI_API}/api/auth/${usuario._id}/verify/${token.token}`;
+        await nodemailer.sendEmail(usuario.email, "rollingStore_support@gmail.com", link);
+
         res.status(200).send({ msj: "El registro fue exitoso" })
     } catch (error) {
 
@@ -132,8 +147,9 @@ const editarUsuario = async (req,res) => {
     }
 }
 
+
 module.exports = {
     registro,
     login,
-    editarUsuario
+    editarUsuario,
 }
