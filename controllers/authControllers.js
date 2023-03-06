@@ -179,9 +179,48 @@ const recuperarContrasenia = async (req, res) => {
     }
 };
 
+
+const activarCuenta =  async (req,res) => {
+    const {id, token} = req.params
+
+    try {
+        const usuario = await userModel.findOne({_id: id});
+        if (usuario === null ) {
+          return  res.status(404).send({mensaje:"Error con el link ingresado"})
+        }
+
+        const verificacionToken = await tokenModel.findOne({
+            usuarioId: usuario._id,
+            token:token
+        })
+
+
+        if (verificacionToken === null) {
+            return  res.status(404).send({mensaje:"Error con el link ingresado"})
+        }
+
+        verificacionToken.remove();
+
+    } catch (error) {
+        return res.status(500).send({mensaje:"Error a la hora de verificar el token"})
+    }
+
+    try {
+        await userModel.findByIdAndUpdate({_id:id}, {active:true});
+        // tokenModel.findOneAndRemove({token:token})
+        return res.status(200).send({mensaje:"Felicidades! Tu cuenta ya se encuentra activada"})
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({mensaje:"Error! Fallo la activacion de tu cuenta "})
+    }
+  
+
+}
+
 module.exports = {
     registro,
     login,
     editarUsuario,
     recuperarContrasenia,
+    activarCuenta
 };
