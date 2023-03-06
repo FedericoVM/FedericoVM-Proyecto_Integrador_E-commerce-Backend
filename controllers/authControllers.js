@@ -196,7 +196,7 @@ const activarCuenta =  async (req,res) => {
 
 
         if (verificacionToken === null) {
-            return  res.status(404).send({mensaje:"Error con el link ingresado"})
+            return  res.status(404).send({mensaje:"Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo"})
         }
 
         verificacionToken.remove();
@@ -207,7 +207,6 @@ const activarCuenta =  async (req,res) => {
 
     try {
         await userModel.findByIdAndUpdate({_id:id}, {active:true});
-        // tokenModel.findOneAndRemove({token:token})
         return res.status(200).send({mensaje:"Felicidades! Tu cuenta ya se encuentra activada"})
     } catch (error) {
         console.log(error);
