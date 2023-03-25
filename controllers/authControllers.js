@@ -12,7 +12,7 @@ const nodemailer = require("../utils/nodemailer")
 
 const registro = async (req, res) => {
 
-    const { nombre, apellido, edad, email, password,avatar } = req.body
+    const { nombre, apellido, edad, email, password, avatar } = req.body
 
     if (!email) {
         res.status(400).send({ mensaje: "Debe ingresar un email" })
@@ -21,10 +21,10 @@ const registro = async (req, res) => {
     if (!password) {
         res.status(400).send({ mensaje: "Debe ingresar un password" })
     }
-    
 
 
-   
+
+
 
     const nuevoUsuario = new userModel({
         nombre,
@@ -35,27 +35,31 @@ const registro = async (req, res) => {
         avatar
     })
 
-    try {
-        if(req.files.avatar) {
-            const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
-            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
-        
-            nuevoUsuario.avatar = archivoImagen.url
-            nuevoUsuario.cloudinary_id =archivoImagen.public_id
-        } else (
-           res.status(400).send({mensaje:"No se ingreso ninguna imagen"})
-        )
-       
-    } catch (error) {
-       return res.status(400).send({mensaje:"Error a la hora de subir la imagen"})
-    }
-   
 
 
     const salt = byCrypt.genSaltSync(Number(process.env.SALT));
     const passwordHasheado = byCrypt.hashSync(password, salt);
     nuevoUsuario.password = passwordHasheado
 
+    try {
+        if (req.files.avatar && req.files.avatar.size != 0) {
+            const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
+            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
+
+            nuevoUsuario.avatar = archivoImagen.url
+            nuevoUsuario.cloudinary_id = archivoImagen.public_id
+        } else {
+            const archivoImagen = await cloudinary.uploader.upload("https://www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg")
+             
+             nuevoUsuario.avatar = archivoImagen.url
+             nuevoUsuario.cloudinary_id = archivoImagen.public_id
+
+        }
+
+    } catch (error) {
+        console.log(error);
+        return res.status(400).send({ mensaje: "Error a la hora de subir la imagen" })
+    }
 
 
     try {
@@ -71,16 +75,19 @@ const registro = async (req, res) => {
         const link = `${process.env.URI_API}/api/auth/${usuario._id}/verify/${token.token}`;
         await nodemailer.sendEmail(usuario.email, "rollingStore_support@gmail.com", link);
 
-        res.status(200).send({ msj: "El registro fue exitoso" })
+        return res.status(200).send({ msj: "El registro fue exitoso" })
     } catch (error) {
 
         if (error.code === 11000) {
 
-           return res.status(500).send({ msj: "Ya se encuentra registrado un usuario con ese email" })
+            return res.status(404).send({ msj: "Ya se encuentra registrado un usuario con ese email" })
         }
-
-       return res.status(500).send({ msj: "Ocurrio un error a la hora de registrarse" })
+        console.log(error);
+        return res.status(500).send({ msj: "Ocurrio un error a la hora de registrarse" })
     }
+
+
+
 
 
 }
@@ -103,7 +110,7 @@ const login = async (req, res) => {
             const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password)
 
             if (isMatch) {
-                return res.status(200).send({token:jwt_util.crearToken(usuarioEncontrado)})
+                return res.status(200).send({ token: jwt_util.crearToken(usuarioEncontrado) })
             } else {
                 return res.status(400).send({ mensaje: "Contraseña incorrecta" })
             }
@@ -116,12 +123,12 @@ const login = async (req, res) => {
     }
 }
 
-const editarUsuario = async (req,res) => {
-    const {id} = req.params
+const editarUsuario = async (req, res) => {
+    const { id } = req.params
     const nuevaInfo = req.body
 
     const usuarioDB = await userModel.findById(id)
-   
+
 
 
     try {
@@ -129,21 +136,21 @@ const editarUsuario = async (req,res) => {
         if (usuarioDB.cloudinary_id) {
             await cloudinary.uploader.destroy(usuarioDB)
         }
-    
+
         if (req.files.avatar) {
             const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
-        
+
             nuevaInfo.avatar = archivoImagen.url
-            nuevaInfo.cloudinary_id =archivoImagen.public_id
+            nuevaInfo.cloudinary_id = archivoImagen.public_id
         }
 
 
         await userModel.findByIdAndUpdate(id, nuevaInfo)
         console.log(nuevaInfo);
-        res.status(200).send({mensaje:"Los datos fueron actualizados"})
+        res.status(200).send({ mensaje: "Los datos fueron actualizados" })
     } catch (error) {
-        res.status(500).send({mensaje:"Ocurrio un error a la hora actualizar la informacion "})
+        res.status(500).send({ mensaje: "Ocurrio un error a la hora actualizar la informacion " })
     }
 }
 
