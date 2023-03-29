@@ -4,7 +4,7 @@ const bodyParser= require('body-parser');
 const conectarDB=require('./dataBase');
 require("dotenv").config();
 const AuthProductos = require("./routes/productos");
-const PUERTO = 4321;
+const PUERTO = 4000;
 
 app.use(bodyParser.urlencoded({extended:true}));
 app.use(bodyParser.json());

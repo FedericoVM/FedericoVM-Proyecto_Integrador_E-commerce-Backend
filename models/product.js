@@ -25,6 +25,7 @@ const ProductSchema = Mongoose.Schema({
   },
   stock:Number,
   marca:String,
+  cloudinary_id:String,
   destacado: {
     type:Boolean,
     default:false
