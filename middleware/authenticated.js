@@ -28,10 +28,7 @@ const esAdmin = (req,res,next) => {
 }
 
 
-
 module.exports = {
     autorizado,
     esAdmin
 } 
-
-

@@ -1,5 +1,5 @@
-const mongoose = require("mongoose")
 
+const mongoose = require("mongoose")
 
 const conectarBD = async () => {
     try {
@@ -19,4 +19,5 @@ const conectarBD = async () => {
 
 
 module.exports = conectarBD
+
 
