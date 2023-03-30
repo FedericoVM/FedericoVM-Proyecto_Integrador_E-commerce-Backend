@@ -9,6 +9,7 @@ const crearToken = (usuario) => {
 
     const payload = {
         id_usuario : usuario._id,
+        iat : Date.now(),
         nombre: usuario.nombre,
         imagen: usuario.avatar,
         role : usuario.role,

@@ -1,21 +1,24 @@
 const userModel = require("../models/user");
-const tokenModel = require("../models/token");
+const tokenModel = require("../models/token")
 const byCrypt = require("bcryptjs");
 const jwt_util = require("../utils/jwt");
 const cloudinary = require("../utils/cloudinary");
-const crypto = require("crypto");
+const crypto = require("crypto")
 const imagen_url = require("../utils/image");
-const nodemailer = require("../utils/nodemailer");
+const nodemailer = require("../utils/nodemailer")
+
+
 
 const registro = async (req, res) => {
-    const { nombre, apellido, edad, email, password, avatar } = req.body;
+
+    const { nombre, apellido, edad, email, password, avatar } = req.body
 
     if (!email) {
-        res.status(400).send({ mensaje: "Debe ingresar un email" });
+        res.status(400).send({ mensaje: "Debe ingresar un email" })
     }
 
     if (!password) {
-        res.status(400).send({ mensaje: "Debe ingresar un password" });
+        res.status(400).send({ mensaje: "Debe ingresar un password" })
     }
 
     const nuevoUsuario = new userModel({
@@ -116,6 +119,24 @@ const login = async (req, res) => {
     }
 };
 
+const mostrarUsuarios = async (req,res) => {
+
+    const usuarios = await userModel.find();
+
+    try {
+        if (usuarios.length === 0) {
+            return res.status(200).send({mensaje:"No hay usuarios para mostrar"}) 
+        } else {
+            return res.status(200).send(usuarios) 
+        }
+        
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({mensaje:"Se produjo un error a la hora de traer a los usuarios"})
+    }
+}
+
+
 const editarUsuario = async (req, res) => {
     const { id } = req.params;
     const nuevaInfo = req.body;
@@ -179,9 +200,64 @@ const recuperarContrasenia = async (req, res) => {
     }
 };
 
+
+const activarCuenta =  async (req,res) => {
+    const {id, token} = req.params
+
+    try {
+        const usuario = await userModel.findOne({_id: id});
+        if (usuario === null ) {
+          return  res.status(404).send({mensaje:"Error con el link ingresado"})
+        }
+
+        const verificacionToken = await tokenModel.findOne({
+            usuarioId: usuario._id,
+            token:token
+        })
+
+
+        if (verificacionToken === null) {
+            return  res.status(404).send({mensaje:"Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo"})
+        }
+
+        verificacionToken.remove();
+
+    } catch (error) {
+        return res.status(500).send({mensaje:"Error a la hora de verificar el token"})
+    }
+
+    try {
+        await userModel.findByIdAndUpdate({_id:id}, {active:true});
+        return res.status(200).send({mensaje:"Felicidades! Tu cuenta ya se encuentra activada"})
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({mensaje:"Error! Fallo la activacion de tu cuenta "})
+    }
+
+}
+
+const borrarUsuario = async (req,res) => {
+
+    const {id} = req.params
+
+    try {
+        await userModel.findByIdAndDelete(id)
+        res.status(200).send({mensaje:"El usuario fue eliminado"})
+    } catch (error) {
+        console.log(error);
+        res.status(400).send({mensaje:"Ocurrio un error al intentar borrar el usuario"})
+    }
+    
+}
+
+
+
 module.exports = {
     registro,
     login,
+    mostrarUsuarios,
     editarUsuario,
     recuperarContrasenia,
+    activarCuenta,
+    borrarUsuario
 };
