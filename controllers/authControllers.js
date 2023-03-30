@@ -8,8 +8,6 @@ const imagen_url = require("../utils/image");
 const nodemailer = require("../utils/nodemailer")
 
 
-
-
 const registro = async (req, res) => {
 
     const { nombre, apellido, edad, email, password, avatar } = req.body
@@ -21,7 +19,6 @@ const registro = async (req, res) => {
     if (!password) {
         res.status(400).send({ mensaje: "Debe ingresar un password" })
     }
-
 
     const nuevoUsuario = new userModel({
         nombre,
@@ -218,7 +215,6 @@ const activarCuenta =  async (req,res) => {
         console.log(error);
         return res.status(500).send({mensaje:"Error! Fallo la activacion de tu cuenta "})
     }
-  
 
 }
 

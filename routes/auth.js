@@ -11,4 +11,5 @@ router.put("/editar/:id",autMiddleware.autorizado,multipartyMiddleware,AuthContr
 router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
 
+
 module.exports = router
