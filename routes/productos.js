@@ -10,4 +10,5 @@ router.post('/crear-producto', AutMiddleware.autorizado,AutMiddleware.esAdmin, m
 router.put('/editar/:id', AutMiddleware.autorizado,AutMiddleware.esAdmin, multipartMiddleware, ProductosController.editarProducto);
 router.delete('/eliminar-producto/:id', AutMiddleware.autorizado,AutMiddleware.esAdmin,ProductosController.eliminarProducto)
 
+
 module.exports = router

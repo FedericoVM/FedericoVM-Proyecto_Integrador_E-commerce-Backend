@@ -1,14 +1,23 @@
-const mongoose = require('mongoose');
 
-const conectarDB = async () => {
+const mongoose = require("mongoose")
+
+const conectarBD = async () => {
     try {
-        mongoose.set("strictQuery", false);
-        await mongoose.connect(process.env.URI_BD);
-        console.log('Base de datos conectada')
+        await mongoose.connect(process.env.URI_BD),{
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        }
+
+        console.log("Se logro conectar a la base de datos");
+
     } catch (error) {
         console.log(error);
-        process.exit(1);
+        console.log("No se logro conectar a la base de datos");
+        process.exit(1)
     }
 }
 
-module.exports = conectarDB
+
+module.exports = conectarBD
+
+

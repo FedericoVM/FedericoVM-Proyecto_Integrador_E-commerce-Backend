@@ -1,4 +1,3 @@
-
 const jwt_util = require("../utils/jwt");
 
 const autorizado = (req,res,next) => {
@@ -32,4 +31,4 @@ const esAdmin = (req,res,next) => {
 module.exports = {
     autorizado,
     esAdmin
-}
+} 
