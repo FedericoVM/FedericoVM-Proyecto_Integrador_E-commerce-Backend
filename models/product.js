@@ -5,13 +5,19 @@ const ProductSchema = Mongoose.Schema({
     type:String,
     required:true
   },
-  precio:Number,
+    precio: {
+        type: Number,
+        required: true
+    },
   codigo:{
     type:String,
     required:true,
     unique:true
   },
-  categoria:String,
+    categoria: {
+        type: String,
+        required: true
+    },
   descripcion:String,
   imagen:{
     type:String,
@@ -25,4 +31,4 @@ const ProductSchema = Mongoose.Schema({
   }
 }) 
 
-module.exports = Mongoose.model("Products", ProductSchema)
+module.exports = Mongoose.model("Productos", ProductSchema)

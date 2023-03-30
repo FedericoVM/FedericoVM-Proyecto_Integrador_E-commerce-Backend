@@ -10,8 +10,10 @@ const crearToken = (usuario) => {
     const payload = {
         id_usuario : usuario._id,
         iat : Date.now(),
-        expiracion: expiracionToken.getTime(),
-        role : usuario.role
+        nombre: usuario.nombre,
+        imagen: usuario.avatar,
+        role : usuario.role,
+        expiracion: expiracionToken.getTime()
     }
 
     return jwt.sign(payload,process.env.JWT_SECRET_KET)
