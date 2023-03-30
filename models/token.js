@@ -9,7 +9,7 @@ const TokenSchema = Mongoose.Schema({
     },
     token:{
         type:String,
-        required:true
+        requeride:true
     },
     created_ad:{
         type:Date,
