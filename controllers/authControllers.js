@@ -8,10 +8,10 @@ const imagen_url = require("../utils/image");
 const nodemailer = require("../utils/nodemailer")
 
 
+
 const registro = async (req, res) => {
 
     const { nombre, apellido, edad, email, password, avatar } = req.body
-
 
     if (!email) {
         res.status(400).send({ mensaje: "Debe ingresar un email" })
@@ -119,6 +119,24 @@ const login = async (req, res) => {
             .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
     }
 };
+
+const mostrarUsuarios = async (req,res) => {
+
+    const usuarios = await userModel.find();
+
+    try {
+        if (usuarios.length === 0) {
+            return res.status(200).send({mensaje:"No hay usuarios para mostrar"}) 
+        } else {
+            return res.status(200).send(usuarios) 
+        }
+        
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({mensaje:"Se produjo un error a la hora de traer a los usuarios"})
+    }
+}
+
 
 const editarUsuario = async (req, res) => {
     const { id } = req.params;
@@ -238,10 +256,9 @@ const borrarUsuario = async (req,res) => {
 module.exports = {
     registro,
     login,
+    mostrarUsuarios,
     editarUsuario,
     recuperarContrasenia,
     activarCuenta,
     borrarUsuario
 };
-
-

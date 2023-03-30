@@ -14,7 +14,6 @@ const crearToken = (usuario) => {
         imagen: usuario.avatar,
         role : usuario.role,
         expiracion: expiracionToken.getTime()
-
     }
 
     return jwt.sign(payload,process.env.JWT_SECRET_KET)
