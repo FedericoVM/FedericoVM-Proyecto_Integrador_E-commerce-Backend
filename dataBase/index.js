@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose")
 
 
@@ -18,3 +19,4 @@ const conectarBD = async () => {
 }
 
 module.exports = conectarBD
+

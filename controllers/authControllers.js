@@ -1,22 +1,27 @@
 const userModel = require("../models/user");
-const tokenModel = require("../models/token");
+const tokenModel = require("../models/token")
 const byCrypt = require("bcryptjs");
 const jwt_util = require("../utils/jwt");
 const cloudinary = require("../utils/cloudinary");
-const crypto = require("crypto");
+const crypto = require("crypto")
 const imagen_url = require("../utils/image");
-const nodemailer = require("../utils/nodemailer");
+const nodemailer = require("../utils/nodemailer")
+
+
+
 
 const registro = async (req, res) => {
-    const { nombre, apellido, edad, email, password, avatar } = req.body;
+
+    const { nombre, apellido, edad, email, password, avatar } = req.body
 
     if (!email) {
-        res.status(400).send({ mensaje: "Debe ingresar un email" });
+        res.status(400).send({ mensaje: "Debe ingresar un email" })
     }
 
     if (!password) {
-        res.status(400).send({ mensaje: "Debe ingresar un password" });
+        res.status(400).send({ mensaje: "Debe ingresar un password" })
     }
+
 
     const nuevoUsuario = new userModel({
         nombre,
@@ -47,6 +52,7 @@ const registro = async (req, res) => {
 
     try {
         const usuario = await nuevoUsuario.save();
+
 
         const token = await tokenModel({
             usuarioId: usuario._id,
@@ -216,6 +222,7 @@ const activarCuenta =  async (req,res) => {
 
 }
 
+
 module.exports = {
     registro,
     login,
@@ -223,3 +230,4 @@ module.exports = {
     recuperarContrasenia,
     activarCuenta
 };
+
