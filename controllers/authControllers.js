@@ -51,7 +51,6 @@ const registro = async (req, res) => {
     try {
         const usuario = await nuevoUsuario.save();
 
-
         const token = await tokenModel({
             usuarioId: usuario._id,
             token: crypto.randomBytes(32).toString("hex"),
