@@ -10,6 +10,6 @@ router.post("/login", AuthControllers.login);
 router.put("/editar/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.editarUsuario);
 router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
-
+router.delete("/delete/:id", authMiddleware.autorizado, authMiddleware.esAdmin , AuthControllers.borrarUsuario )
 
 module.exports = router
