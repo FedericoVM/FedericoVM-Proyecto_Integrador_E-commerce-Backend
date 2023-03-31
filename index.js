@@ -5,6 +5,7 @@ const AuthRouter = require("./routes/auth")
 const AuthProductos = require("./routes/productos");
 require("dotenv").config();
 
+
 const bodyParser = require("body-parser");
 
 const PORT = 4000;

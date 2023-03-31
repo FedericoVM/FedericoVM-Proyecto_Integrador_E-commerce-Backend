@@ -14,4 +14,5 @@ router.get("/:id/verify/:token",AuthControllers.activarCuenta)
 router.delete("/delete/:id", authMiddleware.autorizado, authMiddleware.esAdmin , AuthControllers.borrarUsuario )
 
 
+
 module.exports = router
