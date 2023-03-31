@@ -152,10 +152,10 @@ const editarUsuario = async (req, res) => {
 
     try {
         if (usuarioDB.cloudinary_id) {
-            await cloudinary.uploader.destroy(usuarioDB);
+            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
         }
 
-        if (req.files.avatar) {
+        if (req.files.imagen && (req.files.imagen.type === 'image/jpg' || req.files.imagen.type === 'image/jpeg')) {
             const rutaImagen = imagen_url.rutaImagen(req.files.avatar);
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 

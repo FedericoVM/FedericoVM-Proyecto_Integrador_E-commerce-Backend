@@ -7,11 +7,11 @@ const multipartyMiddleware = multiparty({uploadDir:"./uploads/avatar"});
 
 router.post("/registro",multipartyMiddleware, AuthControllers.registro);
 router.post("/login", AuthControllers.login);
-router.get("/usuarios", authMiddleware.autorizado, authMiddleware.esAdmin ,AuthControllers.mostrarUsuarios)
+router.get("/usuarios", autMiddleware.autorizado, autMiddleware.esAdmin ,AuthControllers.mostrarUsuarios)
 router.put("/editar/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.editarUsuario);
 router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
-router.delete("/delete/:id", authMiddleware.autorizado, authMiddleware.esAdmin , AuthControllers.borrarUsuario )
+router.delete("/delete/:id", autMiddleware.autorizado, autMiddleware.esAdmin , AuthControllers.borrarUsuario )
 
 
 

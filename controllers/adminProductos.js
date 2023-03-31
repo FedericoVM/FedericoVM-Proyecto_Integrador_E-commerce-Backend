@@ -5,10 +5,10 @@ const imagen_url = require('../utils/image')
 const obtenerProductos = async (req, res) => {
     try {
         const productos = await ProductosModel.find();
-        if (productos) {
+        if (productos.length > 0) {
             return res.status(200).send(productos)
         } else {
-            return res.status(200).send([])
+            return res.status(200).send({msg:"No hay productos cargados" })
         }
     } catch (error) {
         console.log(error)
