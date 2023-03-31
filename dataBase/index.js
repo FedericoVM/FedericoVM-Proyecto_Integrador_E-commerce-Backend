@@ -1,7 +1,6 @@
 
 const mongoose = require("mongoose")
 
-
 const conectarBD = async () => {
     try {
         await mongoose.connect(process.env.URI_BD),{
@@ -19,4 +18,5 @@ const conectarBD = async () => {
 }
 
 module.exports = conectarBD
+
 
