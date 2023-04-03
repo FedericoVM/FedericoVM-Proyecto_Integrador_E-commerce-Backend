@@ -14,12 +14,10 @@ const UserSchema = Mongoose.Schema({
     role:String,
     avatar:String,
     cloudinary_id:String,
-    carrito:Array,
     active:{
         type:Boolean,
         default:false
-    },
-    favoritos:Array
+    }
 })
 
 module.exports = Mongoose.model("Users", UserSchema)

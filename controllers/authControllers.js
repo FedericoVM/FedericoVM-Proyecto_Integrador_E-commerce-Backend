@@ -43,11 +43,7 @@ const registro = async (req, res) => {
             nuevoUsuario.avatar = archivoImagen.url
             nuevoUsuario.cloudinary_id = archivoImagen.public_id
         } else {
-            const archivoImagen = await cloudinary.uploader.upload("https://www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg")
-             
-             nuevoUsuario.avatar = archivoImagen.url
-             nuevoUsuario.cloudinary_id = archivoImagen.public_id
-
+             nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
         }
 
     } catch (error) {
@@ -89,41 +85,45 @@ const registro = async (req, res) => {
 
 const login = async (req, res) => {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-        res.status(400).send({ mensaje: "Debe ingresar el email y password" });
-    }
-
-    const emailLowerCase = email.toLowerCase();
-
-    try {
-        const usuarioEncontrado = await userModel.findOne({
-            email: emailLowerCase,
-        });
-
-        if (usuarioEncontrado) {
-            const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
-
-            if (isMatch) {
-                return res
-                    .status(200)
-                    .send({ token: jwt_util.crearToken(usuarioEncontrado) });
-            } else {
-                return res.status(400).send({ mensaje: "Contraseña incorrecta" });
-            }
-        } else {
-            return res
-                .status(400)
-                .send({
-                    mensaje: "Error! Revisar que el email ingresado sea el correcto",
-                });
+    if (req.user.active === true) {
+        if (!email || !password) {
+            res.status(400).send({ mensaje: "Debe ingresar el email y password" });
         }
-    } catch (error) {
-        console.log(error);
-        return res
-            .status(500)
-            .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+    
+        const emailLowerCase = email.toLowerCase();
+    
+        try {
+            const usuarioEncontrado = await userModel.findOne({
+                email: emailLowerCase,
+            });
+    
+            if (usuarioEncontrado) {
+                const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
+    
+                if (isMatch) {
+                    return res
+                        .status(200)
+                        .send({ token: jwt_util.crearToken(usuarioEncontrado) });
+                } else {
+                    return res.status(400).send({ mensaje: "Contraseña incorrecta" });
+                }
+            } else {
+                return res
+                    .status(400)
+                    .send({
+                        mensaje: "Error! Revisar que el email ingresado sea el correcto",
+                    });
+            }
+        } catch (error) {
+            console.log(error);
+            return res
+                .status(500)
+                .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+        }
+    } else {
+        return res.status(404).send({mensaje:'Ingrese a su correo y confirme el registro de su cuenta'})
     }
+  
 };
 
 const mostrarUsuarios = async (req,res) => {
@@ -149,22 +149,20 @@ const editarUsuario = async (req, res) => {
     const nuevaInfo = req.body;
 
     const usuarioDB = await userModel.findById(id);
-
+        console.log(req.files.avatar);
     try {
         if (usuarioDB.cloudinary_id) {
             await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
         }
 
-        if (req.files.imagen && (req.files.imagen.type === 'image/jpg' || req.files.imagen.type === 'image/jpeg')) {
+        if (req.files.avatar && (req.files.avatar.type === 'image/jpg' || req.files.avatar.type === 'image/jpeg')) {
             const rutaImagen = imagen_url.rutaImagen(req.files.avatar);
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 
             nuevaInfo.avatar = archivoImagen.url;
             nuevaInfo.cloudinary_id = archivoImagen.public_id;
         }
-
         await userModel.findByIdAndUpdate(id, nuevaInfo);
-        console.log(nuevaInfo);
         res.status(200).send({ mensaje: "Los datos fueron actualizados" });
     } catch (error) {
         res
