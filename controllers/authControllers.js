@@ -85,7 +85,7 @@ const registro = async (req, res) => {
 
 const login = async (req, res) => {
     const { email, password } = req.body;
-    if (req.user.active === true) {
+
         if (!email || !password) {
             res.status(400).send({ mensaje: "Debe ingresar el email y password" });
         }
@@ -97,7 +97,7 @@ const login = async (req, res) => {
                 email: emailLowerCase,
             });
     
-            if (usuarioEncontrado) {
+            if (usuarioEncontrado.active === true) {
                 const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
     
                 if (isMatch) {
@@ -111,7 +111,7 @@ const login = async (req, res) => {
                 return res
                     .status(400)
                     .send({
-                        mensaje: "Error! Revisar que el email ingresado sea el correcto",
+                        mensaje: "Error! Revisar que el email ingresado sea el correcto o bien que su cuenta este activada",
                     });
             }
         } catch (error) {
@@ -120,9 +120,7 @@ const login = async (req, res) => {
                 .status(500)
                 .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
         }
-    } else {
-        return res.status(404).send({mensaje:'Ingrese a su correo y confirme el registro de su cuenta'})
-    }
+    
   
 };
 
