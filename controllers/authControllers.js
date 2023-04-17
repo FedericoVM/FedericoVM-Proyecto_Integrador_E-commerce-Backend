@@ -43,7 +43,7 @@ const registro = async (req, res) => {
             nuevoUsuario.avatar = archivoImagen.url
             nuevoUsuario.cloudinary_id = archivoImagen.public_id
         } else {
-             nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
+            nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
         }
 
     } catch (error) {
@@ -86,58 +86,58 @@ const registro = async (req, res) => {
 const login = async (req, res) => {
     const { email, password } = req.body;
 
-        if (!email || !password) {
-            res.status(400).send({ mensaje: "Debe ingresar el email y password" });
-        }
-    
-        const emailLowerCase = email.toLowerCase();
-    
-        try {
-            const usuarioEncontrado = await userModel.findOne({
-                email: emailLowerCase,
-            });
-    
-            if (usuarioEncontrado.active === true) {
-                const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
-    
-                if (isMatch) {
-                    return res
-                        .status(200)
-                        .send({ token: jwt_util.crearToken(usuarioEncontrado) });
-                } else {
-                    return res.status(400).send({ mensaje: "Contraseña incorrecta" });
-                }
-            } else {
+    if (!email || !password) {
+        res.status(400).send({ mensaje: "Debe ingresar el email y password" });
+    }
+
+    const emailLowerCase = email.toLowerCase();
+
+    try {
+        const usuarioEncontrado = await userModel.findOne({
+            email: emailLowerCase,
+        });
+
+        if (usuarioEncontrado.active === true) {
+            const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
+
+            if (isMatch) {
                 return res
-                    .status(400)
-                    .send({
-                        mensaje: "Error! Revisar que el email ingresado sea el correcto o bien que su cuenta este activada",
-                    });
+                    .status(200)
+                    .send({ token: jwt_util.crearToken(usuarioEncontrado) });
+            } else {
+                return res.status(400).send({ mensaje: "Contraseña incorrecta" });
             }
-        } catch (error) {
-            console.log(error);
+        } else {
             return res
-                .status(500)
-                .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+                .status(400)
+                .send({
+                    mensaje: "Error! Revisar que el email ingresado sea el correcto o bien que su cuenta este activada",
+                });
         }
-    
-  
+    } catch (error) {
+        console.log(error);
+        return res
+            .status(500)
+            .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+    }
+
+
 };
 
-const mostrarUsuarios = async (req,res) => {
+const mostrarUsuarios = async (req, res) => {
 
     const usuarios = await userModel.find();
 
     try {
         if (usuarios.length === 0) {
-            return res.status(200).send({mensaje:"No hay usuarios para mostrar"}) 
+            return res.status(200).send({ mensaje: "No hay usuarios para mostrar" })
         } else {
-            return res.status(200).send(usuarios) 
+            return res.status(200).send(usuarios)
         }
-        
+
     } catch (error) {
         console.log(error);
-        return res.status(500).send({mensaje:"Se produjo un error a la hora de traer a los usuarios"})
+        return res.status(500).send({ mensaje: "Se produjo un error a la hora de traer a los usuarios" })
     }
 }
 
@@ -147,7 +147,7 @@ const editarUsuario = async (req, res) => {
     const nuevaInfo = req.body;
 
     const usuarioDB = await userModel.findById(id);
-        console.log(req.files.avatar);
+    console.log(req.files.avatar);
     try {
         if (usuarioDB.cloudinary_id) {
             await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
@@ -203,54 +203,90 @@ const recuperarContrasenia = async (req, res) => {
     }
 };
 
+const cambiarContrasenia = async (req, res) => {
 
-const activarCuenta =  async (req,res) => {
-    const {id, token} = req.params
+    const { password: nuevoPassword } = req.body
+    if (!req.headers.authorization) {
+        res.status(404).send({ msj: "Falta el headers token " })
+    }
 
     try {
-        const usuario = await userModel.findOne({_id: id});
-        if (usuario === null ) {
-          return  res.status(404).send({mensaje:"Error con el link ingresado"})
+
+        const headerToken = req.headers.authorization.replace("Bearer ", "")
+        const token = await tokenModel.findOne({ token: headerToken })
+        console.log(headerToken);
+        if (!token) {
+            return res.status(400).send({ mensaje: "Error en el token" })
+        }
+
+        const usuario = await userModel.findById(token.usuarioId);
+
+        if (!usuario) {
+            return res.status(400).send({ msj: "Error en el token" })
+        }
+
+        if (usuario.password === nuevoPassword) {
+            return res.status(400).send({ msj: "No se puede repetir la contraseña" })
+        }
+
+        const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+        const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
+
+        await userModel.findByIdAndUpdate({ _id: usuario._id }, { password: passwordHash })
+        return res.status(200).send({ msj: "Su contraseña fue actualizada" })
+
+    } catch (error) {
+        return res.status(500).send({ msj: "Error a la hora de actualizar la contraseña" })
+    }
+}
+
+const activarCuenta = async (req, res) => {
+    const { id, token } = req.params
+
+    try {
+        const usuario = await userModel.findOne({ _id: id });
+        if (usuario === null) {
+            return res.status(404).send({ mensaje: "Error con el link ingresado" })
         }
 
         const verificacionToken = await tokenModel.findOne({
             usuarioId: usuario._id,
-            token:token
+            token: token
         })
 
 
         if (verificacionToken === null) {
-            return  res.status(404).send({mensaje:"Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo"})
+            return res.status(404).send({ mensaje: "Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo" })
         }
 
         verificacionToken.remove();
 
     } catch (error) {
-        return res.status(500).send({mensaje:"Error a la hora de verificar el token"})
+        return res.status(500).send({ mensaje: "Error a la hora de verificar el token" })
     }
 
     try {
-        await userModel.findByIdAndUpdate({_id:id}, {active:true});
-        return res.status(200).send({mensaje:"Felicidades! Tu cuenta ya se encuentra activada"})
+        await userModel.findByIdAndUpdate({ _id: id }, { active: true });
+        return res.status(200).send({ mensaje: "Felicidades! Tu cuenta ya se encuentra activada" })
     } catch (error) {
         console.log(error);
-        return res.status(500).send({mensaje:"Error! Fallo la activacion de tu cuenta "})
+        return res.status(500).send({ mensaje: "Error! Fallo la activacion de tu cuenta " })
     }
 
 }
 
-const borrarUsuario = async (req,res) => {
+const borrarUsuario = async (req, res) => {
 
-    const {id} = req.params
+    const { id } = req.params
 
     try {
         await userModel.findByIdAndDelete(id)
-        res.status(200).send({mensaje:"El usuario fue eliminado"})
+        res.status(200).send({ mensaje: "El usuario fue eliminado" })
     } catch (error) {
         console.log(error);
-        res.status(400).send({mensaje:"Ocurrio un error al intentar borrar el usuario"})
+        res.status(400).send({ mensaje: "Ocurrio un error al intentar borrar el usuario" })
     }
-    
+
 }
 
 
@@ -261,6 +297,7 @@ module.exports = {
     mostrarUsuarios,
     editarUsuario,
     recuperarContrasenia,
+    cambiarContrasenia,
     activarCuenta,
     borrarUsuario
 };

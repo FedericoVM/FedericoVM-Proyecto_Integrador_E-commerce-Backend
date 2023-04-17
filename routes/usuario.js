@@ -8,6 +8,7 @@ const multipartyMiddleware = multiparty({uploadDir:"./uploads/avatar"});
 router.post("/registro",multipartyMiddleware, AuthControllers.registro);
 router.post("/login",AuthControllers.login);
 router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
+router.put("/",AuthControllers.cambiarContrasenia)
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
 
 
