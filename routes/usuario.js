@@ -9,7 +9,9 @@ router.post("/registro",multipartyMiddleware, AuthControllers.registro);
 router.post("/login",AuthControllers.login);
 router.post("/recuperar-contrasenia",AuthControllers.recuperarContrasenia);
 router.put("/",AuthControllers.cambiarContrasenia)
+router.put("/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.editarUsuario);
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
+router.get("/:info",autMiddleware.autorizado, AuthControllers.mostrarUsuario)
 
 
 

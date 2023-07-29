@@ -11,14 +11,13 @@ const obtenerProductos = async (req, res) => {
             return res.status(200).send({msg:"No hay productos cargados" })
         }
     } catch (error) {
-        console.log(error)
         return res.status(500).send({ msg: "Error en la base de datos al pedir los productos" })
     }
 }
 
 const crearProducto = async (req, res) => {
 
-    const { codigo, nombre, marca, precio, categoria, descripcion, imagen, stock } = req.body;
+    const { codigo, nombre, marca, precio, categoria, descripcion, imagen,stock, destacado } = req.body;
 
     if (!nombre) return res.status(400).send({ msg: "Nombre requerido" });
     if (!codigo) return res.status(400).send({ msg: "Codigo requerido" });
@@ -32,7 +31,8 @@ const crearProducto = async (req, res) => {
         categoria,
         descripcion,
         imagen,
-        stock
+        stock,
+        destacado
     })
 
     try {
@@ -69,26 +69,23 @@ const editarProducto = async (req, res) => {
 
     try {
 
-        if (productoDb.cloudinary_id) {
+        if (req.files.imagen !== undefined && (req.files.imagen.type === 'image/jpg' || req.files.imagen.type === 'image/jpeg') ) {
             await cloudinary.uploader.destroy(productoDb.cloudinary_id)
-        }
-
-        if (req.files.imagen && (req.files.imagen.type === 'image/jpg' || req.files.imagen.type === 'image/jpeg') ) {
-            const rutaImagen = imagen_url.rutaImagen(req.files.imagen)
-            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
-
+            const rutaImag = imagen_url.rutaImagen(req.files.imagen)
+            const archivoImagen = await cloudinary.uploader.upload(rutaImag)
             productoData.imagen = archivoImagen.url
             productoData.cloudinary_id = archivoImagen.public_id
+        } else {
+            productoData.imagen = productoDb.imagen
         }
 
 
-        await ProductosModel.findOneAndUpdate(id, productoData);
+        await ProductosModel.findByIdAndUpdate(id, productoData);
 
 
 
         return res.status(200).send({ msg: "producto editado correctamente" })
     } catch (error) {
-        console.log(error);
         return res.status(400).send({ msg: "Error en la base de datos al editar el producto" })
     }
 }

@@ -7,7 +7,7 @@ const multipartyMiddleware = multiparty({uploadDir:"./uploads/avatar"});
 
 
 router.get("/", autMiddleware.autorizado, autMiddleware.esAdmin ,AuthControllers.mostrarUsuarios)
-router.put("/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.editarUsuario);
+router.put("/:id",autMiddleware.autorizado,autMiddleware.esAdmin,multipartyMiddleware,AuthControllers.editarUsuario);
 router.delete("/:id", autMiddleware.autorizado, autMiddleware.esAdmin , AuthControllers.borrarUsuario )
 
 

@@ -25,10 +25,9 @@ const registro = async (req, res) => {
         apellido,
         edad,
         email: email.toLowerCase(),
-        role: "admin",
+        role: "usuario",
         avatar
     })
-
 
 
     const salt = byCrypt.genSaltSync(Number(process.env.SALT));
@@ -61,15 +60,14 @@ const registro = async (req, res) => {
 
         await token.save();
 
-        const link = `${process.env.URI_API}/auth/${usuario._id}/verify/${token.token}`;
+        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${token.token}`;
         await nodemailer.sendEmail(
             usuario.email,
             "support@gmail.com",
             link
         )
-
-
-        return res.status(200).send({ msj: "El registro fue exitoso" });
+        console.log(nuevoUsuario);
+        return res.status(200).send({ msj: "El registro fue exitoso. Se envio un email al correo para activar la cuenta" });
     } catch (error) {
         if (error.code === 11000) {
             return res
@@ -81,6 +79,8 @@ const registro = async (req, res) => {
             .status(500)
             .send({ msj: "Ocurrio un error a la hora de registrarse" });
     }
+
+    
 };
 
 const login = async (req, res) => {
@@ -104,8 +104,9 @@ const login = async (req, res) => {
                 return res
                     .status(200)
                     .send({ token: jwt_util.crearToken(usuarioEncontrado) });
+                   
             } else {
-                return res.status(400).send({ mensaje: "Contraseña incorrecta" });
+                return res.status(400).send({ mensaje: "Email o contraseña incorrecta" });
             }
         } else {
             return res
@@ -124,6 +125,22 @@ const login = async (req, res) => {
 
 };
 
+const mostrarUsuario = async (req, res) => {
+    
+    const { id_usuario : id } = req.user
+    
+
+    try {
+        const usuario = await userModel.findById(id)
+        if (!usuario) {
+           return res.status(404).send({ mensaje: "El usuario no fue encontrado" })
+        }
+       return res.status(200).send({ usuario })
+    } catch (error) {
+       return res.status(500).send({ mensaje:"Ocurrio un error en el proceso de buscar el usuario" })
+    }
+}
+
 const mostrarUsuarios = async (req, res) => {
 
     const usuarios = await userModel.find();
@@ -141,35 +158,38 @@ const mostrarUsuarios = async (req, res) => {
     }
 }
 
-
 const editarUsuario = async (req, res) => {
     const { id } = req.params;
     const nuevaInfo = req.body;
 
     const usuarioDB = await userModel.findById(id);
-    console.log(req.files.avatar);
+ 
     try {
-        if (usuarioDB.cloudinary_id) {
-            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
-        }
+   
 
-        if (req.files.avatar && (req.files.avatar.type === 'image/jpg' || req.files.avatar.type === 'image/jpeg')) {
+        if (req.files.avatar!== undefined && (req.files.avatar.type == 'image/jpg' || req.files.avatar.type == 'image/jpeg')) {
+            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
             const rutaImagen = imagen_url.rutaImagen(req.files.avatar);
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 
             nuevaInfo.avatar = archivoImagen.url;
             nuevaInfo.cloudinary_id = archivoImagen.public_id;
+        } else {
+            nuevaInfo.avatar = usuarioDB.avatar
         }
-        await userModel.findByIdAndUpdate(id, nuevaInfo);
-        res.status(200).send({ mensaje: "Los datos fueron actualizados" });
+        await userModel.findByIdAndUpdate(id,nuevaInfo);
+        const usuario = await userModel.findById(id);
+        return res.status(200).send({ token: jwt_util.crearToken(usuario) });
     } catch (error) {
-        res
-            .status(500)
+        return res
+            .status(400)
             .send({
                 mensaje: "Ocurrio un error a la hora actualizar la informacion ",
             });
     }
-};
+
+    
+}
 
 const recuperarContrasenia = async (req, res) => {
     const { email } = req.body;
@@ -238,7 +258,7 @@ const cambiarContrasenia = async (req, res) => {
     } catch (error) {
         return res.status(500).send({ msj: "Error a la hora de actualizar la contraseña" })
     }
-}
+};
 
 const activarCuenta = async (req, res) => {
     const { id, token } = req.params
@@ -273,7 +293,7 @@ const activarCuenta = async (req, res) => {
         return res.status(500).send({ mensaje: "Error! Fallo la activacion de tu cuenta " })
     }
 
-}
+};
 
 const borrarUsuario = async (req, res) => {
 
@@ -294,6 +314,7 @@ const borrarUsuario = async (req, res) => {
 module.exports = {
     registro,
     login,
+    mostrarUsuario,
     mostrarUsuarios,
     editarUsuario,
     recuperarContrasenia,
