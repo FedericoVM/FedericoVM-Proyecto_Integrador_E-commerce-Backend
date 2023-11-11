@@ -61,6 +61,7 @@ const crearProducto = async (req, res) => {
 }
 
 const editarProducto = async (req, res) => {
+    
     const { id } = req.params;
 
     const productoData = req.body;
