@@ -104,7 +104,7 @@ const login = async (req, res) => {
                 return res
                     .status(200)
                     .send({ token: jwt_util.crearToken(usuarioEncontrado) });
-                   
+
             } else {
                 return res.status(400).send({ mensaje: "Email o contraseña incorrecta" });
             }
@@ -121,8 +121,6 @@ const login = async (req, res) => {
             .status(500)
             .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
     }
-
-
 };
 
 const mostrarUsuario = async (req, res) => {
@@ -140,6 +138,7 @@ const mostrarUsuario = async (req, res) => {
        return res.status(500).send({ mensaje:"Ocurrio un error en el proceso de buscar el usuario" })
     }
 }
+
 
 const mostrarUsuarios = async (req, res) => {
 
@@ -163,7 +162,7 @@ const editarUsuario = async (req, res) => {
     const nuevaInfo = req.body;
 
     const usuarioDB = await userModel.findById(id);
- 
+
     try {
    
 

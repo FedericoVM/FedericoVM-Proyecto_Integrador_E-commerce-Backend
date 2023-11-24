@@ -12,4 +12,5 @@ router.delete("/:id", autMiddleware.autorizado, autMiddleware.esAdmin , AuthCont
 
 
 
+
 module.exports = router
