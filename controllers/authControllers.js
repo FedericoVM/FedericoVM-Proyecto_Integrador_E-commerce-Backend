@@ -25,10 +25,9 @@ const registro = async (req, res) => {
         apellido,
         edad,
         email: email.toLowerCase(),
-        role: "admin",
+        role: "usuario",
         avatar
     })
-
 
 
     const salt = byCrypt.genSaltSync(Number(process.env.SALT));
@@ -43,7 +42,7 @@ const registro = async (req, res) => {
             nuevoUsuario.avatar = archivoImagen.url
             nuevoUsuario.cloudinary_id = archivoImagen.public_id
         } else {
-             nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
+            nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
         }
 
     } catch (error) {
@@ -61,15 +60,14 @@ const registro = async (req, res) => {
 
         await token.save();
 
-        const link = `${process.env.URI_API}/auth/${usuario._id}/verify/${token.token}`;
+        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${token.token}`;
         await nodemailer.sendEmail(
             usuario.email,
             "support@gmail.com",
             link
         )
-
-
-        return res.status(200).send({ msj: "El registro fue exitoso" });
+        console.log(nuevoUsuario);
+        return res.status(200).send({ msj: "El registro fue exitoso. Se envio un email al correo para activar la cuenta" });
     } catch (error) {
         if (error.code === 11000) {
             return res
@@ -81,97 +79,117 @@ const registro = async (req, res) => {
             .status(500)
             .send({ msj: "Ocurrio un error a la hora de registrarse" });
     }
+
+    
 };
 
 const login = async (req, res) => {
     const { email, password } = req.body;
-    if (req.user.active === true) {
-        if (!email || !password) {
-            res.status(400).send({ mensaje: "Debe ingresar el email y password" });
-        }
-    
-        const emailLowerCase = email.toLowerCase();
-    
-        try {
-            const usuarioEncontrado = await userModel.findOne({
-                email: emailLowerCase,
-            });
-    
-            if (usuarioEncontrado) {
-                const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
-    
-                if (isMatch) {
-                    return res
-                        .status(200)
-                        .send({ token: jwt_util.crearToken(usuarioEncontrado) });
-                } else {
-                    return res.status(400).send({ mensaje: "Contraseña incorrecta" });
-                }
-            } else {
-                return res
-                    .status(400)
-                    .send({
-                        mensaje: "Error! Revisar que el email ingresado sea el correcto",
-                    });
-            }
-        } catch (error) {
-            console.log(error);
-            return res
-                .status(500)
-                .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
-        }
-    } else {
-        return res.status(404).send({mensaje:'Ingrese a su correo y confirme el registro de su cuenta'})
+
+    if (!email || !password) {
+        res.status(400).send({ mensaje: "Debe ingresar el email y password" });
     }
-  
+
+    const emailLowerCase = email.toLowerCase();
+
+    try {
+        const usuarioEncontrado = await userModel.findOne({
+            email: emailLowerCase,
+        });
+
+        if (usuarioEncontrado.active === true) {
+            const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
+
+            if (isMatch) {
+                return res
+                    .status(200)
+                    .send({ token: jwt_util.crearToken(usuarioEncontrado) });
+                   
+            } else {
+                return res.status(400).send({ mensaje: "Email o contraseña incorrecta" });
+            }
+        } else {
+            return res
+                .status(400)
+                .send({
+                    mensaje: "Error! Revisar que el email ingresado sea el correcto o bien que su cuenta este activada",
+                });
+        }
+    } catch (error) {
+        console.log(error);
+        return res
+            .status(500)
+            .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+    }
+
+
 };
 
-const mostrarUsuarios = async (req,res) => {
+const mostrarUsuario = async (req, res) => {
+    
+    const { id_usuario : id } = req.user
+    
+
+    try {
+        const usuario = await userModel.findById(id)
+        if (!usuario) {
+           return res.status(404).send({ mensaje: "El usuario no fue encontrado" })
+        }
+       return res.status(200).send({ usuario })
+    } catch (error) {
+       return res.status(500).send({ mensaje:"Ocurrio un error en el proceso de buscar el usuario" })
+    }
+}
+
+const mostrarUsuarios = async (req, res) => {
 
     const usuarios = await userModel.find();
 
     try {
         if (usuarios.length === 0) {
-            return res.status(200).send({mensaje:"No hay usuarios para mostrar"}) 
+            return res.status(200).send({ mensaje: "No hay usuarios para mostrar" })
         } else {
-            return res.status(200).send(usuarios) 
+            return res.status(200).send(usuarios)
         }
-        
+
     } catch (error) {
         console.log(error);
-        return res.status(500).send({mensaje:"Se produjo un error a la hora de traer a los usuarios"})
+        return res.status(500).send({ mensaje: "Se produjo un error a la hora de traer a los usuarios" })
     }
 }
-
 
 const editarUsuario = async (req, res) => {
     const { id } = req.params;
     const nuevaInfo = req.body;
 
     const usuarioDB = await userModel.findById(id);
-        console.log(req.files.avatar);
+ 
     try {
-        if (usuarioDB.cloudinary_id) {
-            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
-        }
+   
 
-        if (req.files.avatar && (req.files.avatar.type === 'image/jpg' || req.files.avatar.type === 'image/jpeg')) {
+        if (req.files.avatar!== undefined && (req.files.avatar.type == 'image/jpg' || req.files.avatar.type == 'image/jpeg')) {
+            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
             const rutaImagen = imagen_url.rutaImagen(req.files.avatar);
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 
             nuevaInfo.avatar = archivoImagen.url;
             nuevaInfo.cloudinary_id = archivoImagen.public_id;
+        } else {
+            nuevaInfo.avatar = usuarioDB.avatar
         }
-        await userModel.findByIdAndUpdate(id, nuevaInfo);
-        res.status(200).send({ mensaje: "Los datos fueron actualizados" });
+        await userModel.findByIdAndUpdate(id,nuevaInfo);
+        const usuario = await userModel.findById(id);
+        return res.status(200).send({ token: jwt_util.crearToken(usuario) });
     } catch (error) {
-        res
-            .status(500)
+        return res
+            .status(400)
             .send({
                 mensaje: "Ocurrio un error a la hora actualizar la informacion ",
             });
     }
-};
+
+    
+}
 
 const recuperarContrasenia = async (req, res) => {
     const { email } = req.body;
@@ -205,54 +223,90 @@ const recuperarContrasenia = async (req, res) => {
     }
 };
 
+const cambiarContrasenia = async (req, res) => {
 
-const activarCuenta =  async (req,res) => {
-    const {id, token} = req.params
+    const { password: nuevoPassword } = req.body
+    if (!req.headers.authorization) {
+        res.status(404).send({ msj: "Falta el headers token " })
+    }
 
     try {
-        const usuario = await userModel.findOne({_id: id});
-        if (usuario === null ) {
-          return  res.status(404).send({mensaje:"Error con el link ingresado"})
+
+        const headerToken = req.headers.authorization.replace("Bearer ", "")
+        const token = await tokenModel.findOne({ token: headerToken })
+        console.log(headerToken);
+        if (!token) {
+            return res.status(400).send({ mensaje: "Error en el token" })
+        }
+
+        const usuario = await userModel.findById(token.usuarioId);
+
+        if (!usuario) {
+            return res.status(400).send({ msj: "Error en el token" })
+        }
+
+        if (usuario.password === nuevoPassword) {
+            return res.status(400).send({ msj: "No se puede repetir la contraseña" })
+        }
+
+        const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+        const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
+
+        await userModel.findByIdAndUpdate({ _id: usuario._id }, { password: passwordHash })
+        return res.status(200).send({ msj: "Su contraseña fue actualizada" })
+
+    } catch (error) {
+        return res.status(500).send({ msj: "Error a la hora de actualizar la contraseña" })
+    }
+};
+
+const activarCuenta = async (req, res) => {
+    const { id, token } = req.params
+
+    try {
+        const usuario = await userModel.findOne({ _id: id });
+        if (usuario === null) {
+            return res.status(404).send({ mensaje: "Error con el link ingresado" })
         }
 
         const verificacionToken = await tokenModel.findOne({
             usuarioId: usuario._id,
-            token:token
+            token: token
         })
 
 
         if (verificacionToken === null) {
-            return  res.status(404).send({mensaje:"Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo"})
+            return res.status(404).send({ mensaje: "Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo" })
         }
 
         verificacionToken.remove();
 
     } catch (error) {
-        return res.status(500).send({mensaje:"Error a la hora de verificar el token"})
+        return res.status(500).send({ mensaje: "Error a la hora de verificar el token" })
     }
 
     try {
-        await userModel.findByIdAndUpdate({_id:id}, {active:true});
-        return res.status(200).send({mensaje:"Felicidades! Tu cuenta ya se encuentra activada"})
+        await userModel.findByIdAndUpdate({ _id: id }, { active: true });
+        return res.status(200).send({ mensaje: "Felicidades! Tu cuenta ya se encuentra activada" })
     } catch (error) {
         console.log(error);
-        return res.status(500).send({mensaje:"Error! Fallo la activacion de tu cuenta "})
+        return res.status(500).send({ mensaje: "Error! Fallo la activacion de tu cuenta " })
     }
 
-}
+};
 
-const borrarUsuario = async (req,res) => {
+const borrarUsuario = async (req, res) => {
 
-    const {id} = req.params
+    const { id } = req.params
 
     try {
         await userModel.findByIdAndDelete(id)
-        res.status(200).send({mensaje:"El usuario fue eliminado"})
+        res.status(200).send({ mensaje: "El usuario fue eliminado" })
     } catch (error) {
         console.log(error);
-        res.status(400).send({mensaje:"Ocurrio un error al intentar borrar el usuario"})
+        res.status(400).send({ mensaje: "Ocurrio un error al intentar borrar el usuario" })
     }
-    
+
 }
 
 
@@ -260,9 +314,11 @@ const borrarUsuario = async (req,res) => {
 module.exports = {
     registro,
     login,
+    mostrarUsuario,
     mostrarUsuarios,
     editarUsuario,
     recuperarContrasenia,
+    cambiarContrasenia,
     activarCuenta,
     borrarUsuario
 };
