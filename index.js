@@ -5,6 +5,7 @@ const app = express()
 const cors = require("cors")
 const AuthRouter = require("./routes/auth")
 const AuthProductos = require("./routes/productos");
+const AuthFavoritos = require("./routes/favoritos")
 const AuthCarrito  = require("./routes/carrito")
 const AuthUsuario = require("./routes/usuario")
 
@@ -24,6 +25,7 @@ app.use("/carrito",AuthCarrito)
 app.use("/auth",AuthRouter);
 app.use('/productos',AuthProductos);
 app.use('/usuario',AuthUsuario);
+app.use('/favoritos', AuthFavoritos )
 
 
 app.listen(PORT,() => {
