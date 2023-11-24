@@ -9,10 +9,11 @@ const autorizado = (req,res,next) => {
         try {
             const payload = jwt_util.decode(token);
             req.user = payload;
-          
             next()
         } catch (error) {
+            console.log("Holaaaaa");
             return res.status(500).send(error)
+            
         }
     }
 }
