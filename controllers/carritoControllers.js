@@ -2,9 +2,11 @@ const CarritoModel = require("../models/carrito");
 const ProductosModel = require("../models/product");
 
 const traerProductos = async (req, res) => {
-  const { email } = req.body;
+
+  const { email } = req.user;
 
   try {
+    
     const productosCarrito = await CarritoModel.find({ email_usuario: email });
 
     productosCarrito.length > 0
@@ -20,17 +22,21 @@ const traerProductos = async (req, res) => {
 };
 
 const agregarProducto = async (req, res) => {
-  const { email_usuario, productos, cantidad } = req.body;
+
+  const productos  = req.body;
+  const {email} = req.user
 
   const productoAgregar = new CarritoModel({
-    email_usuario,
-    productos,
-    cantidad,
+    email_usuario:email,
+    productos:productos,
+    cantidad:1,
   });
+
+ 
 
   try {
     const usuarioEncontrado = await CarritoModel.find({
-      email_usuario: email_usuario,
+      email_usuario: productoAgregar.email_usuario,
     });
 
     const producto = await ProductosModel.findById(productos);
@@ -80,9 +86,11 @@ const eliminarProducto = async (req, res) => {
 };
 
 const editarProducto = async (req, res) => {
+
   let { id } = req.params;
 
   let nuevaCantidad = req.body;
+
 
   try {
     let buscarProducto = await CarritoModel.findById(id);
@@ -95,6 +103,10 @@ const editarProducto = async (req, res) => {
       productoEncontrado.stock < nuevaCantidad.cantidad
     ) {
       return res.status(200).send({ mensaje: "Sin stock o insuficiente " });
+    }
+
+    if (nuevaCantidad > productoEncontrado.stock) {
+      return res.status(200).send({ mensaje: "No puede agregar mas cantidad. Llego al limite de stock del producto " });
     }
 
     await CarritoModel.findByIdAndUpdate(id, nuevaCantidad);

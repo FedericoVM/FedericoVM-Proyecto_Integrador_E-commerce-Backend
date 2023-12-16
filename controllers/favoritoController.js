@@ -1,8 +1,8 @@
-const FavoritoModel = require("../models/favorito.js");
-const ProductosModel = require("../models/product.js");
+const FavoritoModel = require("../models/favorito");
 
 const mostrarFavoritos = async (req, res) => {
-  const { email } = req.body;
+  
+  const {email} = req.user;
 
   try {
     const listaFavoritos = await FavoritoModel.find({ email_usuario: email });
@@ -20,17 +20,19 @@ const mostrarFavoritos = async (req, res) => {
 };
 
 const agregarFavorito = async (req, res) => {
-  const { email_usuario, productos } = req.body;
+
+  const { email } = req.user;
+  const  productos  = req.body
 
   try {
 
     const nuevoFavorito = new FavoritoModel({
-      email_usuario,
+      email_usuario:email,
       productos,
     });
 
     const usuarioEncontrado = await FavoritoModel.find({
-      email_usuario: email_usuario
+      email_usuario: email
     });
 
 
@@ -44,7 +46,7 @@ const agregarFavorito = async (req, res) => {
       return res
         .status(200)
         .send({ mensaje: "Error! El producto ya esta agregado en favoritos" });
-    } 
+    }
 
     await nuevoFavorito.save();
 
@@ -59,11 +61,18 @@ const agregarFavorito = async (req, res) => {
 };
 
 const eliminarFavorito = async (req, res) => {
-  const { id } = req.params;
+
+  const { id } = req.params
+  const {email} = req.user
+
+
+  let listaFavoritos = await FavoritoModel.find({ email: email })
+  let productoEncontrado = listaFavoritos.find((producto) => (producto.productos === id))
+
 
   try {
-    await FavoritoModel.findByIdAndDelete(id);
 
+    await FavoritoModel.findByIdAndDelete(productoEncontrado._id);
     return res.status(200).send({ mensaje: "Se elimino de favoritos" });
 
   } catch (error) {

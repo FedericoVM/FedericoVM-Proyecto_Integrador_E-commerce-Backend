@@ -1,5 +1,5 @@
 const express = require("express")
-const FavoritoController = require("../controllers/favoritoController.js");
+const FavoritoController = require("../controllers/favoritoController");
 const autMiddleware = require("../middleware/authenticated");
 const router = express.Router()
 

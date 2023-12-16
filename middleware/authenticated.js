@@ -1,7 +1,7 @@
 const jwt_util = require("../utils/jwt");
 
 const autorizado = (req,res,next) => {
-  
+
     if (!req.headers.authorization) {
         return res.status(400).send({mensaje:"Error! Falta el headers de autorizacion"})
     } else {
@@ -11,7 +11,7 @@ const autorizado = (req,res,next) => {
             req.user = payload;
             next()
         } catch (error) {
-            console.log("Holaaaaa");
+       
             return res.status(500).send(error)
             
         }
