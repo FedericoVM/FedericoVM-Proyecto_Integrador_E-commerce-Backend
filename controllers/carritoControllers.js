@@ -23,9 +23,8 @@ const traerProductos = async (req, res) => {
 
 const agregarProducto = async (req, res) => {
 
-  const productos  = req.body;
+  const {productos}  = req.body;
   const {email} = req.user
-
   const productoAgregar = new CarritoModel({
     email_usuario:email,
     productos:productos,
@@ -33,7 +32,6 @@ const agregarProducto = async (req, res) => {
   });
 
  
-
   try {
     const usuarioEncontrado = await CarritoModel.find({
       email_usuario: productoAgregar.email_usuario,
@@ -63,6 +61,7 @@ const agregarProducto = async (req, res) => {
       .status(200)
       .send({ mensaje: "Se agrego el producto al carrito" });
   } catch (error) {
+    console.log(error);
     return res
       .status(500)
       .send({ mensaje: "Ocurrio un problema en el servidor" });
