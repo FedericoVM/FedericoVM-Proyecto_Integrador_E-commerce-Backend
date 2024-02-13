@@ -1,8 +1,7 @@
-
 const nodemailer = require("nodemailer")
 const sendEmail = async(email, remitente, text) => {
     try {
-       
+
         const transport = nodemailer.createTransport({
             host: "smtp.gmail.com",
             port: 587,
@@ -26,6 +25,5 @@ const sendEmail = async(email, remitente, text) => {
         console.log("No se pudo enviar el email");
     }
 }
-
 
 module.exports = {sendEmail};

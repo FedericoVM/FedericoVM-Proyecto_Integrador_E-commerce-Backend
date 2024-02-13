@@ -35,12 +35,9 @@ const agregarFavorito = async (req, res) => {
       email_usuario: email
     });
 
-
-
     let productoEncontrado = usuarioEncontrado.some((usuario) => {
       return usuario.productos === productos;
     });
-
 
     if (productoEncontrado) {
       return res
@@ -65,10 +62,8 @@ const eliminarFavorito = async (req, res) => {
   const { id } = req.params
   const {email} = req.user
 
-
   let listaFavoritos = await FavoritoModel.find({ email: email })
   let productoEncontrado = listaFavoritos.find((producto) => (producto.productos === id))
-
 
   try {
 

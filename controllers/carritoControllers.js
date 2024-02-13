@@ -31,7 +31,6 @@ const agregarProducto = async (req, res) => {
     cantidad:1,
   });
 
- 
   try {
     const usuarioEncontrado = await CarritoModel.find({
       email_usuario: productoAgregar.email_usuario,
@@ -89,7 +88,6 @@ const editarProducto = async (req, res) => {
   let { id } = req.params;
 
   let nuevaCantidad = req.body;
-
 
   try {
     let buscarProducto = await CarritoModel.findById(id);

@@ -4,11 +4,20 @@ const byCrypt = require("bcryptjs");
 const jwt_util = require("../utils/jwt");
 const cloudinary = require("../utils/cloudinary");
 const crypto = require("crypto")
-const imagen_url = require("../utils/image");
 const nodemailer = require("../utils/nodemailer")
-
+const eliminarCarpeta = require('../utils/deleteFolder')
+const crearCarpeta = require('../utils/createFolder')
 
 const registro = async (req, res) => {
+
+    let uploadDir;
+    let files;
+
+    if(req.files.avatar) {
+        uploadDir = "./uploads"
+        files = req.files
+        crearCarpeta(uploadDir, files)
+    }
 
     const { nombre, apellido, edad, email, password, avatar } = req.body
 
@@ -29,27 +38,27 @@ const registro = async (req, res) => {
         avatar
     })
 
-
     const salt = byCrypt.genSaltSync(Number(process.env.SALT));
     const passwordHasheado = byCrypt.hashSync(password, salt);
     nuevoUsuario.password = passwordHasheado
 
     try {
         if (req.files.avatar && req.files.avatar.size != 0) {
-            const rutaImagen = imagen_url.rutaImagen(req.files.avatar)
+            const rutaImagen = `./uploads/${files.avatar.name}`
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
 
-            nuevoUsuario.avatar = archivoImagen.url
+            nuevoUsuario.avatar = archivoImagen.secure_url
             nuevoUsuario.cloudinary_id = archivoImagen.public_id
         } else {
-            nuevoUsuario.avatar = "www.shutterstock.com/image-vector/avatar-man-icon-profile-placeholder-600w-1229859850.jpg"
+            nuevoUsuario.avatar = process.env.IMAGEN_DEFAULT // url de imagen default de avatar
         }
+
+        eliminarCarpeta(uploadDir)
 
     } catch (error) {
         console.log(error);
         return res.status(400).send({ mensaje: "Error a la hora de subir la imagen" })
     }
-
 
     try {
         const usuario = await nuevoUsuario.save()
@@ -66,7 +75,7 @@ const registro = async (req, res) => {
             "support@gmail.com",
             link
         )
-        console.log(nuevoUsuario);
+
         return res.status(200).send({ msj: "El registro fue exitoso. Se envio un email al correo para activar la cuenta" });
     } catch (error) {
         if (error.code === 11000) {
@@ -79,8 +88,6 @@ const registro = async (req, res) => {
             .status(500)
             .send({ msj: "Ocurrio un error a la hora de registrarse" });
     }
-
-    
 };
 
 const login = async (req, res) => {
@@ -127,7 +134,6 @@ const mostrarUsuario = async (req, res) => {
     
     const { id_usuario : id } = req.user
     
-
     try {
         const usuario = await userModel.findById(id)
         if (!usuario) {
@@ -138,7 +144,6 @@ const mostrarUsuario = async (req, res) => {
        return res.status(500).send({ mensaje:"Ocurrio un error en el proceso de buscar el usuario" })
     }
 }
-
 
 const mostrarUsuarios = async (req, res) => {
 
@@ -158,6 +163,16 @@ const mostrarUsuarios = async (req, res) => {
 }
 
 const editarUsuario = async (req, res) => {
+
+    let uploadDir;
+    let files;
+
+    if(req.files.avatar) {
+        uploadDir = "./uploads"
+        files = req.files
+        crearCarpeta(uploadDir, files)
+    }
+
     const { id } = req.params;
     const nuevaInfo = req.body;
 
@@ -165,29 +180,28 @@ const editarUsuario = async (req, res) => {
 
     try {
    
-
         if (req.files.avatar!== undefined && (req.files.avatar.type == 'image/jpg' || req.files.avatar.type == 'image/jpeg')) {
             await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
-            const rutaImagen = imagen_url.rutaImagen(req.files.avatar);
+            const rutaImagen = `./uploads/${files.avatar.name}`;
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 
-            nuevaInfo.avatar = archivoImagen.url;
+            nuevaInfo.avatar = archivoImagen.secure_url;
             nuevaInfo.cloudinary_id = archivoImagen.public_id;
         } else {
             nuevaInfo.avatar = usuarioDB.avatar
         }
         await userModel.findByIdAndUpdate(id,nuevaInfo);
         const usuario = await userModel.findById(id);
+        eliminarCarpeta(uploadDir)
         return res.status(200).send({ token: jwt_util.crearToken(usuario) });
     } catch (error) {
+        console.log(error);
         return res
             .status(400)
             .send({
                 mensaje: "Ocurrio un error a la hora actualizar la informacion ",
             });
-    }
-
-    
+    } 
 }
 
 const recuperarContrasenia = async (req, res) => {
@@ -233,7 +247,7 @@ const cambiarContrasenia = async (req, res) => {
 
         const headerToken = req.headers.authorization.replace("Bearer ", "")
         const token = await tokenModel.findOne({ token: headerToken })
-        console.log(headerToken);
+
         if (!token) {
             return res.status(400).send({ mensaje: "Error en el token" })
         }
@@ -273,7 +287,6 @@ const activarCuenta = async (req, res) => {
             token: token
         })
 
-
         if (verificacionToken === null) {
             return res.status(404).send({ mensaje: "Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo" })
         }
@@ -297,18 +310,17 @@ const activarCuenta = async (req, res) => {
 const borrarUsuario = async (req, res) => {
 
     const { id } = req.params
+    const usuarioAEliminar = userModel.findById(id)
 
     try {
         await userModel.findByIdAndDelete(id)
+        await cloudinary.uploader.destroy(usuarioAEliminar.cloudinary_id);
         res.status(200).send({ mensaje: "El usuario fue eliminado" })
     } catch (error) {
         console.log(error);
         res.status(400).send({ mensaje: "Ocurrio un error al intentar borrar el usuario" })
     }
-
 }
-
-
 
 module.exports = {
     registro,

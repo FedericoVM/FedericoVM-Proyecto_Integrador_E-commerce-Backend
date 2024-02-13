@@ -11,13 +11,10 @@ const autorizado = (req,res,next) => {
             req.user = payload;
             next()
         } catch (error) {
-       
             return res.status(500).send(error)
-            
         }
     }
 }
-
 
 const esAdmin = (req,res,next) => {
    
@@ -28,10 +25,7 @@ const esAdmin = (req,res,next) => {
     }
 }
 
-
-
 module.exports = {
     autorizado,
     esAdmin
-} 
-
+}

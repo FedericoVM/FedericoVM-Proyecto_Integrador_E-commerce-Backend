@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose")
 
 const conectarBD = async () => {
@@ -18,5 +17,3 @@ const conectarBD = async () => {
 }
 
 module.exports = conectarBD
-
-

@@ -1,6 +1,5 @@
 const Mongoose = require("mongoose");
 
-
 const UserSchema = Mongoose.Schema({
     nombre:String,
     apellido:String,

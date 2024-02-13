@@ -6,12 +6,10 @@ const FavoritoSchema = Mongoose.Schema({
         type: String,
         required: true,
     },
-
     productos: {
         type: String,
         requeride: true
     }
-
 }) 
 
 module.exports = Mongoose.model("Favoritos", FavoritoSchema)
