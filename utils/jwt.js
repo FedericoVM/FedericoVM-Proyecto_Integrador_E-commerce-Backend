@@ -1,6 +1,5 @@
 const jwt = require("jsonwebtoken");
 
-
 const crearToken = (usuario) => {
 
     const expiracionToken = new Date();
@@ -18,14 +17,11 @@ const crearToken = (usuario) => {
         edad: usuario.edad,
         expiracion: expiracionToken.getTime()
     }
-
     return jwt.sign(payload,process.env.JWT_SECRET_KET)
 }
 
 const decode = (token) => {
-
     return jwt.verify(token,process.env.JWT_SECRET_KET)
-
 }
 
 module.exports = {

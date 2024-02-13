@@ -9,9 +9,6 @@ const AuthFavoritos = require("./routes/favoritos")
 const AuthCarrito  = require("./routes/carrito")
 const AuthUsuario = require("./routes/usuario")
 
-
-
-
 const bodyParser = require("body-parser");
 
 const PORT = 4000;
@@ -27,8 +24,6 @@ app.use('/productos',AuthProductos);
 app.use('/usuario',AuthUsuario);
 app.use('/favoritos', AuthFavoritos )
 
-
 app.listen(PORT,() => {
     console.log(`El servidor esta escuchando en el puerto ${PORT}`);
 } )
-

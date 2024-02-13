@@ -6,20 +6,14 @@ const CarritoSchema = Mongoose.Schema({
         type: String,
         required: true,
     },
-
     productos: {
         type: String,
         requeride: true
-    }
-
-
-    ,
+    },
     cantidad: {
         type: Number,
         default: 1
     }
-
-
 })
 
 module.exports = Mongoose.model("Carrito", CarritoSchema)
