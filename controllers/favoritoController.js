@@ -22,7 +22,7 @@ const mostrarFavoritos = async (req, res) => {
 const agregarFavorito = async (req, res) => {
 
   const { email } = req.user;
-  const  productos  = req.body
+  const  {productos}  = req.body
 
   try {
 

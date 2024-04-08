@@ -256,7 +256,8 @@ const recuperarContrasenia = async (req, res) => {
         });
 
         await token.save();
-        const link = `<a href="${process.env.URI_API}/recuperacion-contrasenia/${token.token}">  Recuperar Contraseña </a>`;
+
+        const link = `${process.env.URI_API}/${token.token}">  Recuperar Contraseña </a>`;
 
         await nodemailer.sendEmail(email, "support@gmail.com", link);
 
