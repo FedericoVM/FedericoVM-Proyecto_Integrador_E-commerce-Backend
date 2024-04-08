@@ -6,7 +6,8 @@ const cloudinary = require("../utils/cloudinary");
 const crypto = require("crypto")
 const nodemailer = require("../utils/nodemailer")
 const eliminarCarpeta = require('../utils/deleteFolder')
-const crearCarpeta = require('../utils/createFolder')
+const crearCarpeta = require('../utils/createFolder');
+const htmlEmail = require("../utils/htmlEmail")
 
 const registro = async (req, res) => {
 
@@ -69,7 +70,7 @@ const registro = async (req, res) => {
 
         await token.save();
 
-        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${token.token}`;
+        const link = htmlEmail(usuario.nombre, usuario._id, token.token);
         await nodemailer.sendEmail(
             usuario.email,
             "support@gmail.com",
@@ -106,8 +107,21 @@ const login = async (req, res) => {
 
         if (usuarioEncontrado.active === true) {
             const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
-
+            const usuarrioELinea = await tokenModel.findOne({ usuarioId: usuarioEncontrado._id})
+           
             if (isMatch) {
+
+                if(usuarrioELinea) {
+                    return res.status(414).send({ mensaje: "El correo ya inicio sesion"})
+                }
+
+                const tokenLogin = await tokenModel({
+                    usuarioId: usuarioEncontrado._id,
+                    token: crypto.randomBytes(32).toString("hex")
+                })
+
+                await tokenLogin.save()
+
                 return res
                     .status(200)
                     .send({ token: jwt_util.crearToken(usuarioEncontrado) });
@@ -130,6 +144,17 @@ const login = async (req, res) => {
     }
 };
 
+const logout = async (req, res) =>{
+    const {id_usuario} = req.user;
+
+    const usuarioEnLinea = await tokenModel.findOne({usuarioId: id_usuario})
+
+    if(usuarioEnLinea) {
+        usuarioEnLinea.remove()
+        return res.status(200).send({ mensaje : "Token removido correctamente" })
+    }
+}
+
 const mostrarUsuario = async (req, res) => {
     
     const { id_usuario : id } = req.user
@@ -147,13 +172,18 @@ const mostrarUsuario = async (req, res) => {
 
 const mostrarUsuarios = async (req, res) => {
 
+    let adminInfo = req.user
+
     const usuarios = await userModel.find();
+    let usuariosAEnviar = usuarios.filter((users) => {
+        return users.email !== adminInfo.email
+    })
 
     try {
-        if (usuarios.length === 0) {
+        if (usuariosAEnviar === 0) {
             return res.status(200).send({ mensaje: "No hay usuarios para mostrar" })
         } else {
-            return res.status(200).send(usuarios)
+            return res.status(200).send(usuariosAEnviar)
         }
 
     } catch (error) {
@@ -181,7 +211,10 @@ const editarUsuario = async (req, res) => {
     try {
    
         if (req.files.avatar!== undefined && (req.files.avatar.type == 'image/jpg' || req.files.avatar.type == 'image/jpeg')) {
-            await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
+            if(usuarioDB.cloudinary_id){
+                await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
+            }
+           
             const rutaImagen = `./uploads/${files.avatar.name}`;
             const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
 
@@ -238,6 +271,8 @@ const recuperarContrasenia = async (req, res) => {
 
 const cambiarContrasenia = async (req, res) => {
 
+    const {id_usuario} = req.user;
+
     const { password: nuevoPassword } = req.body
     if (!req.headers.authorization) {
         res.status(404).send({ msj: "Falta el headers token " })
@@ -245,20 +280,20 @@ const cambiarContrasenia = async (req, res) => {
 
     try {
 
-        const headerToken = req.headers.authorization.replace("Bearer ", "")
-        const token = await tokenModel.findOne({ token: headerToken })
+        const token = await tokenModel.findOne({ usuarioId: id_usuario })
 
         if (!token) {
-            return res.status(400).send({ mensaje: "Error en el token" })
+            return res.status(400).send({ msj: "Error en el token" })
         }
 
         const usuario = await userModel.findById(token.usuarioId);
 
         if (!usuario) {
-            return res.status(400).send({ msj: "Error en el token" })
+            return res.status(400).send({ msj: "Error en el token usuario" })
         }
 
-        if (usuario.password === nuevoPassword) {
+        const isMatch = byCrypt.compareSync(nuevoPassword, usuario.password);
+        if (isMatch) {
             return res.status(400).send({ msj: "No se puede repetir la contraseña" })
         }
 
@@ -273,27 +308,69 @@ const cambiarContrasenia = async (req, res) => {
     }
 };
 
+const cambiarContraseniaDesdeEmail = async (req,res) =>{
+
+    const {token} = req.params;
+    const {password: nuevoPassword} = req.body
+
+    const tokenDB = await tokenModel.findOne({token: token})
+
+    if (!tokenDB) {
+        return res.status(400).send({mensaje: "Revise el link o si el ya a caducado el link"})
+    }
+
+    try {
+        const encontrarUsuario = await userModel.findById(tokenDB.usuarioId)
+
+        if (!encontrarUsuario) {
+            return res.status(400).send({ mensaje: "compruebe que el url no este modificado."})
+        }
+        const isMatch = byCrypt.compareSync(nuevoPassword, encontrarUsuario.password);
+
+        if (isMatch) {
+            return res.status(400).send({ mensaje: "No se puede repetir la contraseña" })
+        }
+
+        const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+        const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
+
+        tokenDB.remove()
+
+        await userModel.findByIdAndUpdate({ _id: encontrarUsuario._id }, { password: passwordHash })
+        return res.status(200).send({ mensaje: "Su contraseña fue actualizada" })
+        
+    } catch (error) {
+        console.log(error);
+    }
+}
+
 const activarCuenta = async (req, res) => {
     const { id, token } = req.params
 
     try {
         const usuario = await userModel.findOne({ _id: id });
+        
         if (usuario === null) {
-            return res.status(404).send({ mensaje: "Error con el link ingresado" })
+            return res.status(404).send({ mensaje: "Asegurese de que el url no este modificado, vuelva a abrirlo desde su email" })
         }
 
+        if (usuario.active === true) {
+            return res.status(404).send({ mensaje: "La cuenta ya se encuentra activada"})
+        }
+     
         const verificacionToken = await tokenModel.findOne({
             usuarioId: usuario._id,
             token: token
         })
 
         if (verificacionToken === null) {
-            return res.status(404).send({ mensaje: "Ocurrio un error. No se encontro el usuario, si copio el link, asegúrese de que esté completo" })
+            return res.status(405).send({ mensaje: "Asegúrese que no esté modificado o que el link no este caducado" })
         }
 
-        verificacionToken.remove();
+       verificacionToken.remove();
 
     } catch (error) {
+        console.log(error);
         return res.status(500).send({ mensaje: "Error a la hora de verificar el token" })
     }
 
@@ -304,17 +381,56 @@ const activarCuenta = async (req, res) => {
         console.log(error);
         return res.status(500).send({ mensaje: "Error! Fallo la activacion de tu cuenta " })
     }
-
 };
+
+const reenviarToken = async (req,res) =>{
+    const {email} = req.body
+
+    try {
+        const usuario = await userModel.findOne({email: email.toLowerCase()})
+        
+        if(!usuario) {
+            return res.status(404).send({ mensaje: "El email no se encuntra registrado"})
+        }
+
+        const token = await tokenModel.findOne({usuarioId: usuario._id})
+
+        if(token){
+            return res.status(200).send({ mensaje: "Ya existe un token con ese email"})
+        }
+
+        const tokenActivacion = await tokenModel({
+            usuarioId : usuario._id,
+            token: crypto.randomBytes(32).toString("hex"),
+        }
+        )
+
+        await tokenActivacion.save()
+
+        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${tokenActivacion.token}`;
+        await nodemailer.sendEmail(
+            usuario.email,
+            "support@gmail.com",
+            link
+        )
+
+        return res.status(200).send({ mensaje: "Se a creado un nuevo token, revise su email."})
+    } catch (error) {
+        console.log(error);
+        return res.status(500).send({ mensaje: "El servidor no esta disponible."})
+    }
+}
 
 const borrarUsuario = async (req, res) => {
 
     const { id } = req.params
-    const usuarioAEliminar = userModel.findById(id)
+    const usuarioAEliminar = await userModel.findById(id)
 
     try {
         await userModel.findByIdAndDelete(id)
-        await cloudinary.uploader.destroy(usuarioAEliminar.cloudinary_id);
+        if( usuarioAEliminar.cloudinary_id) {
+            await cloudinary.uploader.destroy(usuarioAEliminar.cloudinary_id);
+        }
         res.status(200).send({ mensaje: "El usuario fue eliminado" })
     } catch (error) {
         console.log(error);
@@ -330,7 +446,10 @@ module.exports = {
     editarUsuario,
     recuperarContrasenia,
     cambiarContrasenia,
+    cambiarContraseniaDesdeEmail,
     activarCuenta,
-    borrarUsuario
+    reenviarToken,
+    borrarUsuario,
+    logout
 };
 
