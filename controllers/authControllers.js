@@ -7,7 +7,7 @@ const crypto = require("crypto")
 const nodemailer = require("../utils/nodemailer")
 const eliminarCarpeta = require('../utils/deleteFolder')
 const crearCarpeta = require('../utils/createFolder');
-const htmlEmail = require("../utils/htmlEmail")
+const {htmlEmailTokenActivarCuenta, htmlEmailTokenRecuperarContrasenia} = require("../utils/htmlEmail")
 
 const registro = async (req, res) => {
 
@@ -70,7 +70,7 @@ const registro = async (req, res) => {
 
         await token.save();
 
-        const link = htmlEmail(usuario.nombre, usuario._id, token.token);
+        const link = htmlEmailTokenActivarCuenta(usuario.nombre, usuario._id, token.token);
         await nodemailer.sendEmail(
             usuario.email,
             "support@gmail.com",
@@ -250,13 +250,23 @@ const recuperarContrasenia = async (req, res) => {
                 });
         }
 
+        if (usuario.active === false) {
+            return res.status(203).send({ mensaje: "Su cuenta no esta activada."})
+        }
+
+        const tokenExiste = await tokenModel.findOne({usuarioId: usuario._id});
+
+        if(tokenExiste) {
+            return res.status(202).send({ mensaje: "Ya se le envio un email, verifique en spam o el email que ingreso." });
+        }
+
         const token = await tokenModel({
             usuarioId: usuario._id,
             token: crypto.randomBytes(32).toString("hex"),
         });
 
         await token.save();
-        const link = `<a href="${process.env.URI_API}/recuperacion-contrasenia/${token.token}">  Recuperar Contraseña </a>`;
+        const link = htmlEmailTokenRecuperarContrasenia(usuario.nombre, token.token);
 
         await nodemailer.sendEmail(email, "support@gmail.com", link);
 
@@ -273,6 +283,7 @@ const cambiarContrasenia = async (req, res) => {
     const {id_usuario} = req.user;
 
     const { password: nuevoPassword } = req.body
+    
     if (!req.headers.authorization) {
         res.status(404).send({ msj: "Falta el headers token " })
     }
@@ -406,7 +417,7 @@ const reenviarToken = async (req,res) =>{
 
         await tokenActivacion.save()
 
-        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${tokenActivacion.token}`;
+        const link = htmlEmailTokenActivarCuenta(usuario.nombre, usuario._id, tokenActivacion.token)
         await nodemailer.sendEmail(
             usuario.email,
             "support@gmail.com",
