@@ -23,11 +23,20 @@ const crearProducto = async (req, res) => {
 
     crearCarpeta(uploadDir, files)
 
-    const { codigo, nombre, marca, precio, categoria, descripcion, imagen,stock, destacado } = req.body;
+    let descuentoFiltrado = 0
+
+    const { codigo, nombre, marca, precio, categoria, descripcion, imagen,stock, destacado, descuento } = req.body;
 
     if (!nombre) return res.status(400).send({ msg: "Nombre requerido" });
     if (!codigo) return res.status(400).send({ msg: "Codigo requerido" });
     if (!precio) return res.status(400).send({ msg: "Precio requerido" });
+    if (destacado === "true" && (!descuento || descuento <= 0)){
+        return res.status(501).send({msg: "Se necesita el descuento si el producto es destacado o que el descuento sea mayor que 0."})
+    }
+
+    if (destacado == 'true') {
+        descuentoFiltrado =+ descuento
+    }
 
     const newProduct = new ProductosModel({
         codigo,
@@ -38,14 +47,14 @@ const crearProducto = async (req, res) => {
         descripcion,
         imagen,
         stock,
-        destacado
+        destacado,
+        descuento: descuentoFiltrado
     })
 
     try {
         if (files.imagen && ( files.imagen.type === 'image/jpg' || files.imagen.type === 'image/jpeg') ) {
             const cloud_image = `./uploads/${files.imagen.name}`;
             const imagen = await cloudinary.uploader.upload(cloud_image);
-            console.log(imagen);
             newProduct.imagen = imagen.secure_url
             newProduct.cloudinary_id = imagen.public_id
             await newProduct.save();
@@ -57,7 +66,6 @@ const crearProducto = async (req, res) => {
         return res.status(200).send({ msg: "Producto creado correctamente" })
 
     } catch (error) {
-        console.log(error);
         if (error.code === 11000) {
             return res.status(404).send({ msg: "No pueden existir 2 productos con el mismo codigo" })
         }
@@ -97,9 +105,8 @@ const editarProducto = async (req, res) => {
         await ProductosModel.findByIdAndUpdate(id, productoData);
         eliminarCarpeta(uploadDir)
 
-        return res.status(200).send({ msg: "producto editado correctamente" })
+        return res.status(200).send({ msg: "Producto editado correctamente" })
     } catch (error) {
-        console.log(error);
         return res.status(400).send({ msg: "Error en la base de datos al editar el producto" })
     }
 }
@@ -114,7 +121,6 @@ const eliminarProducto = async (req, res) => {
         await cloudinary.uploader.destroy(productoAEliminar.cloudinary_id)
         return res.status(200).send({ msg: "Producto eliminado correctamente" })
     } catch (error) {
-        console.log(error);
         return res.status(500).send({ msg: "Error en la base de datos al eliminar producto" })
     }
 }

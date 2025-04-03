@@ -10,7 +10,6 @@ const conectarBD = async () => {
         console.log("Se logro conectar a la base de datos");
 
     } catch (error) {
-        console.log(error);
         console.log("No se logro conectar a la base de datos");
         process.exit(1)
     }

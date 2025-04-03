@@ -60,7 +60,6 @@ const agregarProducto = async (req, res) => {
       .status(200)
       .send({ mensaje: "Se agrego el producto al carrito" });
   } catch (error) {
-    console.log(error);
     return res
       .status(500)
       .send({ mensaje: "Ocurrio un problema en el servidor" });
@@ -76,7 +75,6 @@ const eliminarProducto = async (req, res) => {
       .status(200)
       .send({ mensaje: "El producto se elimmino del carrito" });
   } catch (error) {
-    console.log(error);
     return res
       .status(500)
       .send({ mensaje: "Error al borrar el producto del carrito" });

@@ -18,11 +18,8 @@ const sendEmail = async(email, remitente, text) => {
             to:email,
             html:text
         })
-
-        console.log("Email enviado");
     } catch (error) {
-        console.log(error);
-        console.log("No se pudo enviar el email");
+        res.status(500).send({ mensaje: "Erro en el servidor."});
     }
 }
 
