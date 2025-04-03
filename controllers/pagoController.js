@@ -18,6 +18,7 @@ const paymentCarrito = async (req, res) => {
   let sinStock = [];
 
   const { nombre, apellido } = req.user;
+
   const { email } = req.body;
 
   productosCarrito = await CarritoModel.find({ email_usuario: email });
