@@ -30,6 +30,7 @@ const ProductSchema = Mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  descuento: Number
 });
 
 module.exports = Mongoose.model("Productos", ProductSchema);

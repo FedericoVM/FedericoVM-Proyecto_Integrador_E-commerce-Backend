@@ -1,455 +1,469 @@
 const userModel = require("../models/user");
-const tokenModel = require("../models/token")
+const tokenModel = require("../models/token");
 const byCrypt = require("bcryptjs");
 const jwt_util = require("../utils/jwt");
 const cloudinary = require("../utils/cloudinary");
-const crypto = require("crypto")
-const nodemailer = require("../utils/nodemailer")
-const eliminarCarpeta = require('../utils/deleteFolder')
-const crearCarpeta = require('../utils/createFolder');
-const htmlEmail = require("../utils/htmlEmail")
+const crypto = require("crypto");
+const nodemailer = require("../utils/nodemailer");
+const eliminarCarpeta = require("../utils/deleteFolder");
+const crearCarpeta = require("../utils/createFolder");
+const {htmlEmail, htmlEmailRecuperarContrasenia} = require("../utils/htmlEmail");
 
 const registro = async (req, res) => {
+  let uploadDir;
+  let files;
 
-    let uploadDir;
-    let files;
+  if (req.files.avatar) {
+    uploadDir = "./uploads";
+    files = req.files;
+    crearCarpeta(uploadDir, files);
+  }
 
-    if(req.files.avatar) {
-        uploadDir = "./uploads"
-        files = req.files
-        crearCarpeta(uploadDir, files)
+  const { nombre, apellido, fechaDeNacimiento, email, password, avatar } =
+    req.body;
+
+  if (!email) {
+    res.status(400).send({ mensaje: "Debe ingresar un email" });
+  }
+
+  if (!password) {
+    res.status(400).send({ mensaje: "Debe ingresar un password" });
+  }
+
+  const nuevoUsuario = new userModel({
+    nombre,
+    apellido,
+    fechaDeNacimiento,
+    email: email.toLowerCase(),
+    role: "usuario",
+    avatar,
+  });
+
+  const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+  const passwordHasheado = byCrypt.hashSync(password, salt);
+  nuevoUsuario.password = passwordHasheado;
+
+  try {
+    if (req.files.avatar && req.files.avatar.size != 0) {
+      const rutaImagen = `./uploads/${files.avatar.name}`;
+      const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
+
+      nuevoUsuario.avatar = archivoImagen.secure_url;
+      nuevoUsuario.cloudinary_id = archivoImagen.public_id;
+    } else {
+      nuevoUsuario.avatar = process.env.IMAGEN_DEFAULT;
     }
 
-    const { nombre, apellido, edad, email, password, avatar } = req.body
+    eliminarCarpeta(uploadDir);
+  } catch (error) {
+    return res
+      .status(400)
+      .send({ mensaje: "Error a la hora de subir la imagen" });
+  }
 
-    if (!email) {
-        res.status(400).send({ mensaje: "Debe ingresar un email" })
+  try {
+    const usuario = await nuevoUsuario.save();
+    const token = await tokenModel({
+      usuarioId: usuario._id,
+      token: crypto.randomBytes(32).toString("hex"),
+    });
+
+    await token.save();
+
+    const link = htmlEmail(usuario.nombre, usuario._id, token.token);
+    await nodemailer.sendEmail(usuario.email, "support@gmail.com", link);
+
+    return res
+      .status(200)
+      .send({
+        msj: "El registro fue exitoso. Se envio un email al correo para activar la cuenta",
+      });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res
+        .status(500)
+        .send({ msj: "Ya se encuentra registrado un usuario con ese email" });
     }
 
-    if (!password) {
-        res.status(400).send({ mensaje: "Debe ingresar un password" })
-    }
-
-    const nuevoUsuario = new userModel({
-        nombre,
-        apellido,
-        edad,
-        email: email.toLowerCase(),
-        role: "usuario",
-        avatar
-    })
-
-    const salt = byCrypt.genSaltSync(Number(process.env.SALT));
-    const passwordHasheado = byCrypt.hashSync(password, salt);
-    nuevoUsuario.password = passwordHasheado
-
-    try {
-        if (req.files.avatar && req.files.avatar.size != 0) {
-            const rutaImagen = `./uploads/${files.avatar.name}`
-            const archivoImagen = await cloudinary.uploader.upload(rutaImagen)
-
-            nuevoUsuario.avatar = archivoImagen.secure_url
-            nuevoUsuario.cloudinary_id = archivoImagen.public_id
-        } else {
-            nuevoUsuario.avatar = process.env.IMAGEN_DEFAULT // url de imagen default de avatar
-        }
-
-        eliminarCarpeta(uploadDir)
-
-    } catch (error) {
-        console.log(error);
-        return res.status(400).send({ mensaje: "Error a la hora de subir la imagen" })
-    }
-
-    try {
-        const usuario = await nuevoUsuario.save()
-        const token = await tokenModel({
-            usuarioId: usuario._id,
-            token: crypto.randomBytes(32).toString("hex"),
-        });
-
-        await token.save();
-
-        const link = htmlEmail(usuario.nombre, usuario._id, token.token);
-        await nodemailer.sendEmail(
-            usuario.email,
-            "support@gmail.com",
-            link
-        )
-
-        return res.status(200).send({ msj: "El registro fue exitoso. Se envio un email al correo para activar la cuenta" });
-    } catch (error) {
-        if (error.code === 11000) {
-            return res
-                .status(500)
-                .send({ msj: "Ya se encuentra registrado un usuario con ese email" });
-        }
-
-        return res
-            .status(500)
-            .send({ msj: "Ocurrio un error a la hora de registrarse" });
-    }
+    return res
+      .status(500)
+      .send({ msj: "Ocurrio un error a la hora de registrarse" });
+  }
 };
 
 const login = async (req, res) => {
-    const { email, password } = req.body;
+  const { email, password } = req.body;
 
-    if (!email || !password) {
-        res.status(400).send({ mensaje: "Debe ingresar el email y password" });
-    }
+  if (!email || !password) {
+    res.status(400).send({ mensaje: "Debe ingresar el email y password" });
+  }
 
-    const emailLowerCase = email.toLowerCase();
+  const emailLowerCase = email.toLowerCase();
 
-    try {
-        const usuarioEncontrado = await userModel.findOne({
-            email: emailLowerCase,
-        });
+  try {
+    const usuarioEncontrado = await userModel.findOne({
+      email: emailLowerCase,
+    });
 
-        if (usuarioEncontrado.active === true) {
-            const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
-            const usuarrioELinea = await tokenModel.findOne({ usuarioId: usuarioEncontrado._id})
-           
-            if (isMatch) {
+    if (usuarioEncontrado && usuarioEncontrado.active === true) {
+      const isMatch = byCrypt.compareSync(password, usuarioEncontrado.password);
+      const usuarrioELinea = await tokenModel.findOne({
+        usuarioId: usuarioEncontrado._id,
+      });
 
-                if(usuarrioELinea) {
-                    return res.status(414).send({ mensaje: "El correo ya inicio sesion"})
-                }
-
-                const tokenLogin = await tokenModel({
-                    usuarioId: usuarioEncontrado._id,
-                    token: crypto.randomBytes(32).toString("hex")
-                })
-
-                await tokenLogin.save()
-
-                return res
-                    .status(200)
-                    .send({ token: jwt_util.crearToken(usuarioEncontrado) });
-
-            } else {
-                return res.status(400).send({ mensaje: "Email o contraseña incorrecta" });
-            }
-        } else {
-            return res
-                .status(400)
-                .send({
-                    mensaje: "Error! Revisar que el email ingresado sea el correcto o bien que su cuenta este activada",
-                });
-        }
-    } catch (error) {
-        console.log(error);
+      if (isMatch) {
         return res
-            .status(500)
-            .send({ mensaje: "Ocurrio un error a la hora de buscar el usuario" });
+          .status(200)
+          .send({ token: jwt_util.crearToken(usuarioEncontrado) });
+      } else {
+        return res
+          .status(400)
+          .send({ mensaje: "Email o contraseña incorrecta" });
+      }
+    } else {
+      return res.status(400).send({
+        mensaje:
+          "Error! Revisar que el email ingresado sea el correcto o que su cuenta este activada",
+      });
     }
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ mensaje: "Hay un error en el servidor." });
+  }
 };
 
-const logout = async (req, res) =>{
-    const {id_usuario} = req.user;
-
-    const usuarioEnLinea = await tokenModel.findOne({usuarioId: id_usuario})
-
-    if(usuarioEnLinea) {
-        usuarioEnLinea.remove()
-        return res.status(200).send({ mensaje : "Token removido correctamente" })
-    }
-}
-
 const mostrarUsuario = async (req, res) => {
-    
-    const { id_usuario : id } = req.user
-    
-    try {
-        const usuario = await userModel.findById(id)
-        if (!usuario) {
-           return res.status(404).send({ mensaje: "El usuario no fue encontrado" })
-        }
-       return res.status(200).send({ usuario })
-    } catch (error) {
-       return res.status(500).send({ mensaje:"Ocurrio un error en el proceso de buscar el usuario" })
+  const { id_usuario: id } = req.user;
+
+  try {
+    const usuario = await userModel.findById(id);
+    if (!usuario) {
+      return res.status(404).send({ mensaje: "El usuario no fue encontrado" });
     }
-}
+    return res.status(200).send({ usuario });
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ mensaje: "Ocurrio un error en el proceso de buscar el usuario" });
+  }
+};
 
 const mostrarUsuarios = async (req, res) => {
+  let adminInfo = req.user;
 
-    let adminInfo = req.user
+  const usuarios = await userModel.find();
+  let usuariosAEnviar = usuarios.filter((users) => {
+    return users.email !== adminInfo.email;
+  });
 
-    const usuarios = await userModel.find();
-    let usuariosAEnviar = usuarios.filter((users) => {
-        return users.email !== adminInfo.email
-    })
-
-    try {
-        if (usuariosAEnviar === 0) {
-            return res.status(200).send({ mensaje: "No hay usuarios para mostrar" })
-        } else {
-            return res.status(200).send(usuariosAEnviar)
-        }
-
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send({ mensaje: "Se produjo un error a la hora de traer a los usuarios" })
+  try {
+    if (usuariosAEnviar === 0) {
+      return res.status(200).send({ mensaje: "No hay usuarios para mostrar" });
+    } else {
+      return res.status(200).send(usuariosAEnviar);
     }
-}
+  } catch (error) {
+    return res
+      .status(500)
+      .send({
+        mensaje: "Se produjo un error a la hora de traer a los usuarios",
+      });
+  }
+};
 
 const editarUsuario = async (req, res) => {
+  let uploadDir;
+  let files;
 
-    let uploadDir;
-    let files;
+  if (req.files.avatar) {
+    uploadDir = "./uploads";
+    files = req.files;
+    crearCarpeta(uploadDir, files);
+  }
 
-    if(req.files.avatar) {
-        uploadDir = "./uploads"
-        files = req.files
-        crearCarpeta(uploadDir, files)
+  const { id } = req.params;
+  const nuevaInfo = req.body;
+
+  const usuarioDB = await userModel.findById(id);
+
+  try {
+    if (
+      req.files.avatar !== undefined &&
+      (req.files.avatar.type == "image/jpg" ||
+        req.files.avatar.type == "image/jpeg")
+    ) {
+      if (usuarioDB.cloudinary_id) {
+        await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
+      }
+
+      const rutaImagen = `./uploads/${files.avatar.name}`;
+      const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
+
+      nuevaInfo.avatar = archivoImagen.secure_url;
+      nuevaInfo.cloudinary_id = archivoImagen.public_id;
+    } else {
+      nuevaInfo.avatar = usuarioDB.avatar;
     }
-
-    const { id } = req.params;
-    const nuevaInfo = req.body;
-
-    const usuarioDB = await userModel.findById(id);
-
-    try {
-   
-        if (req.files.avatar!== undefined && (req.files.avatar.type == 'image/jpg' || req.files.avatar.type == 'image/jpeg')) {
-            if(usuarioDB.cloudinary_id){
-                await cloudinary.uploader.destroy(usuarioDB.cloudinary_id);
-            }
-           
-            const rutaImagen = `./uploads/${files.avatar.name}`;
-            const archivoImagen = await cloudinary.uploader.upload(rutaImagen);
-
-            nuevaInfo.avatar = archivoImagen.secure_url;
-            nuevaInfo.cloudinary_id = archivoImagen.public_id;
-        } else {
-            nuevaInfo.avatar = usuarioDB.avatar
-        }
-        await userModel.findByIdAndUpdate(id,nuevaInfo);
-        const usuario = await userModel.findById(id);
-        eliminarCarpeta(uploadDir)
-        return res.status(200).send({ token: jwt_util.crearToken(usuario) });
-    } catch (error) {
-        console.log(error);
-        return res
-            .status(400)
-            .send({
-                mensaje: "Ocurrio un error a la hora actualizar la informacion ",
-            });
-    } 
-}
+    await userModel.findByIdAndUpdate(id, nuevaInfo);
+    const usuario = await userModel.findById(id);
+    eliminarCarpeta(uploadDir);
+    return res.status(200).send({ token: jwt_util.crearToken(usuario) });
+  } catch (error) {
+    return res.status(500).send({
+      mensaje: "Ocurrio un error a la hora actualizar la informacion.",
+    });
+  }
+};
 
 const recuperarContrasenia = async (req, res) => {
-    const { email } = req.body;
+  const { email } = req.body;
 
-    try {
-        const usuario = await userModel.findOne({ email });
-        if (!usuario) {
-            return res
-                .status(404)
-                .send({
-                    mensaje: "No existe un usuario registrado con el email ingresado",
-                });
-        }
-
-        const token = await tokenModel({
-            usuarioId: usuario._id,
-            token: crypto.randomBytes(32).toString("hex"),
-        });
-
-        await token.save();
-
-        const link = `${process.env.URI_API}/${token.token}">  Recuperar Contraseña </a>`;
-
-        await nodemailer.sendEmail(email, "support@gmail.com", link);
-
-        res.status(200).send({ mensaje: "Revisa tu correo para terminar el proceso" });
-
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send({ mensaje: "Error en el proceso de recuperacion de contraseña" })
+  try {
+    const usuario = await userModel.findOne({ email });
+    if (!usuario) {
+      return res.status(404).send({
+        mensaje: "No existe un usuario registrado con el email ingresado",
+      });
     }
+
+    if (!usuario.active) {
+      return res.status(403).send({
+        mensaje: "La cuenta no a sido activada, revise su correo"
+      })
+    }
+
+    const token = await tokenModel({
+      usuarioId: usuario._id,
+      token: crypto.randomBytes(32).toString("hex"),
+    });
+
+    await token.save();
+
+    const link = htmlEmailRecuperarContrasenia(token.token, usuario.nombre);
+
+    await nodemailer.sendEmail(email, "support@gmail.com", link);
+
+    res
+      .status(200)
+      .send({ mensaje: "Revisa tu correo para terminar el proceso" });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res
+        .status(502)
+        .send({ mensaje: "Ya fue enviado un mail a este correo" });
+    } else {
+      return res
+        .status(500)
+        .send({ mensaje: "Error en el proceso de recuperacion de contraseña" });
+    }
+  }
 };
 
 const cambiarContrasenia = async (req, res) => {
+  const { id_usuario } = req.user;
 
-    const {id_usuario} = req.user;
+  const { password: nuevoPassword } = req.body;
+  if (!req.headers.authorization) {
+    res.status(404).send({ msj: "Falta el headers token " });
+  }
 
-    const { password: nuevoPassword } = req.body
-    if (!req.headers.authorization) {
-        res.status(404).send({ msj: "Falta el headers token " })
+  try {
+
+    const usuario = await userModel.findById(id_usuario);
+
+    if (!usuario) {
+      return res.status(400).send({ msj: "Error en el token usuario" });
     }
 
-    try {
-
-        const token = await tokenModel.findOne({ usuarioId: id_usuario })
-
-        if (!token) {
-            return res.status(400).send({ msj: "Error en el token" })
-        }
-
-        const usuario = await userModel.findById(token.usuarioId);
-
-        if (!usuario) {
-            return res.status(400).send({ msj: "Error en el token usuario" })
-        }
-
-        const isMatch = byCrypt.compareSync(nuevoPassword, usuario.password);
-        if (isMatch) {
-            return res.status(400).send({ msj: "No se puede repetir la contraseña" })
-        }
-
-        const salt = byCrypt.genSaltSync(Number(process.env.SALT));
-        const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
-
-        await userModel.findByIdAndUpdate({ _id: usuario._id }, { password: passwordHash })
-        return res.status(200).send({ msj: "Su contraseña fue actualizada" })
-
-    } catch (error) {
-        return res.status(500).send({ msj: "Error a la hora de actualizar la contraseña" })
+    const isMatch = byCrypt.compareSync(nuevoPassword, usuario.password);
+    if (isMatch) {
+      return res.status(400).send({ msj: "No se puede repetir la contraseña" });
     }
+
+    const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+    const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
+
+    await userModel.findByIdAndUpdate(
+      { _id: usuario._id },
+      { password: passwordHash }
+    );
+    return res.status(200).send({ msj: "Su contraseña fue actualizada" });
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ msj: "Error a la hora de actualizar la contraseña" });
+  }
 };
 
-const cambiarContraseniaDesdeEmail = async (req,res) =>{
+const cambiarContraseniaDesdeEmail = async (req, res) => {
+  const { token } = req.params;
+  const { password: nuevoPassword } = req.body;
 
-    const {token} = req.params;
-    const {password: nuevoPassword} = req.body
+  const tokenDB = await tokenModel.findOne({ token: token });
 
-    const tokenDB = await tokenModel.findOne({token: token})
+  if (!tokenDB) {
+    return res
+      .status(400)
+      .send({
+        mensaje:
+          "compruebe que el link no este caducado o no este modificado el url",
+      });
+  }
 
-    if (!tokenDB) {
-        return res.status(400).send({mensaje: "Revise el link o si el ya a caducado el link"})
+  try {
+    const encontrarUsuario = await userModel.findById(tokenDB.usuarioId);
+
+    if (!encontrarUsuario) {
+      return res
+        .status(400)
+        .send({ mensaje: "compruebe que el url no este modificado." });
+    }
+    const isMatch = byCrypt.compareSync(
+      nuevoPassword,
+      encontrarUsuario.password
+    );
+
+    if (isMatch) {
+      return res
+        .status(400)
+        .send({ mensaje: "No se puede repetir la contraseña" });
     }
 
-    try {
-        const encontrarUsuario = await userModel.findById(tokenDB.usuarioId)
+    const salt = byCrypt.genSaltSync(Number(process.env.SALT));
+    const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
 
-        if (!encontrarUsuario) {
-            return res.status(400).send({ mensaje: "compruebe que el url no este modificado."})
-        }
-        const isMatch = byCrypt.compareSync(nuevoPassword, encontrarUsuario.password);
+    tokenDB.remove();
 
-        if (isMatch) {
-            return res.status(400).send({ mensaje: "No se puede repetir la contraseña" })
-        }
-
-        const salt = byCrypt.genSaltSync(Number(process.env.SALT));
-        const passwordHash = byCrypt.hashSync(nuevoPassword, salt);
-
-        tokenDB.remove()
-
-        await userModel.findByIdAndUpdate({ _id: encontrarUsuario._id }, { password: passwordHash })
-        return res.status(200).send({ mensaje: "Su contraseña fue actualizada" })
-        
-    } catch (error) {
-        console.log(error);
-    }
-}
+    await userModel.findByIdAndUpdate(
+      { _id: encontrarUsuario._id },
+      { password: passwordHash }
+    );
+    return res.status(200).send({ mensaje: "Su contraseña fue actualizada" });
+  } catch (error) {
+    return res.status(500).send( {mensaje: "Error en el servidor."} )
+  }
+};
 
 const activarCuenta = async (req, res) => {
-    const { id, token } = req.params
+  const { id, token } = req.params;
 
-    try {
-        const usuario = await userModel.findOne({ _id: id });
-        
-        if (usuario === null) {
-            return res.status(404).send({ mensaje: "Asegurese de que el url no este modificado, vuelva a abrirlo desde su email" })
-        }
+  try {
+    const usuario = await userModel.findOne({ _id: id });
 
-        if (usuario.active === true) {
-            return res.status(404).send({ mensaje: "La cuenta ya se encuentra activada"})
-        }
-     
-        const verificacionToken = await tokenModel.findOne({
-            usuarioId: usuario._id,
-            token: token
-        })
-
-        if (verificacionToken === null) {
-            return res.status(405).send({ mensaje: "Asegúrese que no esté modificado o que el link no este caducado" })
-        }
-
-       verificacionToken.remove();
-
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send({ mensaje: "Error a la hora de verificar el token" })
+    if (usuario === null) {
+      return res
+        .status(404)
+        .send({
+          mensaje:
+            "Asegurese de que el url no este modificado, vuelva a abrirlo desde su email",
+        });
     }
 
-    try {
-        await userModel.findByIdAndUpdate({ _id: id }, { active: true });
-        return res.status(200).send({ mensaje: "Felicidades! Tu cuenta ya se encuentra activada" })
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send({ mensaje: "Error! Fallo la activacion de tu cuenta " })
+    if (usuario.active === true) {
+      return res
+        .status(404)
+        .send({ mensaje: "La cuenta ya se encuentra activada" });
     }
+
+    const verificacionToken = await tokenModel.findOne({
+      usuarioId: usuario._id,
+      token: token,
+    });
+
+    if (verificacionToken === null) {
+      return res
+        .status(405)
+        .send({
+          mensaje:
+            "Asegúrese que no esté modificado o que el link no este caducado",
+        });
+    }
+
+    verificacionToken.remove();
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ mensaje: "Error a la hora de verificar el token" });
+  }
+
+  try {
+    await userModel.findByIdAndUpdate({ _id: id }, { active: true });
+    return res
+      .status(200)
+      .send({ mensaje: "Felicidades! Tu cuenta ya se encuentra activada" });
+  } catch (error) {
+    return res
+      .status(500)
+      .send({ mensaje: "Error! Fallo la activacion de tu cuenta " });
+  }
 };
 
-const reenviarToken = async (req,res) =>{
-    const {email} = req.body
+const reenviarToken = async (req, res) => {
+  const { email } = req.body;
 
-    try {
-        const usuario = await userModel.findOne({email: email.toLowerCase()})
-        
-        if(!usuario) {
-            return res.status(404).send({ mensaje: "El email no se encuntra registrado"})
-        }
+  try {
+    const usuario = await userModel.findOne({ email: email.toLowerCase() });
 
-        const token = await tokenModel.findOne({usuarioId: usuario._id})
-
-        if(token){
-            return res.status(200).send({ mensaje: "Ya existe un token con ese email"})
-        }
-
-        const tokenActivacion = await tokenModel({
-            usuarioId : usuario._id,
-            token: crypto.randomBytes(32).toString("hex"),
-        }
-        )
-
-        await tokenActivacion.save()
-
-        const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${tokenActivacion.token}`;
-        await nodemailer.sendEmail(
-            usuario.email,
-            "support@gmail.com",
-            link
-        )
-
-        return res.status(200).send({ mensaje: "Se a creado un nuevo token, revise su email."})
-    } catch (error) {
-        console.log(error);
-        return res.status(500).send({ mensaje: "El servidor no esta disponible."})
+    if (!usuario) {
+      return res
+        .status(404)
+        .send({ mensaje: "El email no se encuntra registrado" });
     }
-}
+
+    const token = await tokenModel.findOne({ usuarioId: usuario._id });
+
+    if (token) {
+      return res
+        .status(200)
+        .send({ mensaje: "Ya existe un token con ese email" });
+    }
+
+    const tokenActivacion = await tokenModel({
+      usuarioId: usuario._id,
+      token: crypto.randomBytes(32).toString("hex"),
+    });
+
+    await tokenActivacion.save();
+
+    const link = `${process.env.URI_API}/usuario/${usuario._id}/verify/${tokenActivacion.token}`;
+    await nodemailer.sendEmail(usuario.email, "support@gmail.com", link);
+
+    return res
+      .status(200)
+      .send({ mensaje: "Se a creado un nuevo token, revise su email." });
+  } catch (error) {
+    return res.status(500).send({ mensaje: "El servidor no esta disponible." });
+  }
+};
 
 const borrarUsuario = async (req, res) => {
+  const { id } = req.params;
+  const usuarioAEliminar = await userModel.findById(id);
 
-    const { id } = req.params
-    const usuarioAEliminar = await userModel.findById(id)
-
-    try {
-        await userModel.findByIdAndDelete(id)
-        if( usuarioAEliminar.cloudinary_id) {
-            await cloudinary.uploader.destroy(usuarioAEliminar.cloudinary_id);
-        }
-        res.status(200).send({ mensaje: "El usuario fue eliminado" })
-    } catch (error) {
-        console.log(error);
-        res.status(400).send({ mensaje: "Ocurrio un error al intentar borrar el usuario" })
+  try {
+    await userModel.findByIdAndDelete(id);
+    if (usuarioAEliminar.cloudinary_id) {
+      await cloudinary.uploader.destroy(usuarioAEliminar.cloudinary_id);
     }
-}
-
-module.exports = {
-    registro,
-    login,
-    mostrarUsuario,
-    mostrarUsuarios,
-    editarUsuario,
-    recuperarContrasenia,
-    cambiarContrasenia,
-    cambiarContraseniaDesdeEmail,
-    activarCuenta,
-    reenviarToken,
-    borrarUsuario,
-    logout
+    res.status(200).send({ mensaje: "El usuario fue eliminado" });
+  } catch (error) {
+    res
+      .status(400)
+      .send({ mensaje: "Ocurrio un error al intentar borrar el usuario" });
+  }
 };
 
+module.exports = {
+  registro,
+  login,
+  mostrarUsuario,
+  mostrarUsuarios,
+  editarUsuario,
+  recuperarContrasenia,
+  cambiarContrasenia,
+  cambiarContraseniaDesdeEmail,
+  activarCuenta,
+  reenviarToken,
+  borrarUsuario
+};

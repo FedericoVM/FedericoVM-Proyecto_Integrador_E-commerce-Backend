@@ -9,11 +9,12 @@ const htmlEmail = (nombre, id, token) =>{
     }
 
     a{
-      background-color: rgb(81, 41, 210);
-      height: 1.5rem;
+      background-color: #913175;
+      height: 2rem;
       border-radius: 5px;
       text-decoration: none;
       color: white;
+      align-content: center;
     }
   </style>
   <body>
@@ -25,4 +26,35 @@ const htmlEmail = (nombre, id, token) =>{
 )
 }
 
-module.exports = htmlEmail
+const htmlEmailRecuperarContrasenia = (token, nombre) =>{
+  return (
+    `<style>
+    body{
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    a{
+      background-color: #913175;
+      height: 2rem;
+      border-radius: 5px;
+      text-decoration: none;
+      color: white;
+      align-content: center;
+    }
+  </style>
+  <body>
+    <h1>Rolling Store</h1>
+    <p>Hola ${nombre}.</p>
+    <p>Haz click en el siguiente boton para redirigirte y recuperar tu contrasenia</p>
+    <a href="${process.env.URI_API}/recuperacion-contrasenia/${token}" target="_blank">Recuperar contrasenia</a>
+  </body>`
+)
+}
+
+module.exports = {
+  htmlEmail,
+  htmlEmailRecuperarContrasenia
+}

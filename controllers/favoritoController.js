@@ -52,7 +52,7 @@ const agregarFavorito = async (req, res) => {
     return res
       .status(500)
       .send({
-        mensaje: "Ocurrio un error a la hora de mostrar la lista de favoritos",
+        mensaje: "Ocurrio un error en el servidor.",
       });
   }
 };
@@ -73,7 +73,7 @@ const eliminarFavorito = async (req, res) => {
   } catch (error) {
     return res
       .status(500)
-      .send({ mensaje: "Ocurrio un error a la hora de realizar la operacion" });
+      .send({ mensaje: "Ocurrio un error en el servidor" });
   }
 };
 

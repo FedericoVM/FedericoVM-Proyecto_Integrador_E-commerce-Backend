@@ -14,6 +14,5 @@ router.put("/:id",autMiddleware.autorizado,multipartyMiddleware,AuthControllers.
 router.get("/:id/verify/:token",AuthControllers.activarCuenta)
 router.post("/reenviar-token", AuthControllers.reenviarToken)
 router.get("/:info",autMiddleware.autorizado, AuthControllers.mostrarUsuario)
-router.delete("/logout", autMiddleware.autorizado, AuthControllers.logout)
 
 module.exports = router
