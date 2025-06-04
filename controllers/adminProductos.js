@@ -25,10 +25,9 @@ const crearProducto = async (req, res) => {
 
     let descuentoFiltrado = 0
 
-    const { codigo, nombre, marca, precio, categoria, descripcion, imagen,stock, destacado, descuento } = req.body;
+    const { nombre, marca, precio, categoria, descripcion, imagen,stock, destacado, descuento } = req.body;
 
     if (!nombre) return res.status(400).send({ msg: "Nombre requerido" });
-    if (!codigo) return res.status(400).send({ msg: "Codigo requerido" });
     if (!precio) return res.status(400).send({ msg: "Precio requerido" });
     if (destacado === "true" && (!descuento || descuento <= 0)){
         return res.status(501).send({msg: "Se necesita el descuento si el producto es destacado o que el descuento sea mayor que 0."})
@@ -39,7 +38,6 @@ const crearProducto = async (req, res) => {
     }
 
     const newProduct = new ProductosModel({
-        codigo,
         nombre,
         marca,
         precio,

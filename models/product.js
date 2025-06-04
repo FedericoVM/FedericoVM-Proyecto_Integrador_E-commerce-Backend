@@ -9,11 +9,6 @@ const ProductSchema = Mongoose.Schema({
     type: Number,
     required: true,
   },
-  codigo: {
-    type: String,
-    required: true,
-    unique: true,
-  },
   categoria: {
     type: String,
     required: true,

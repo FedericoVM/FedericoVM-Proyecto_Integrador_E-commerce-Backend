@@ -4,6 +4,7 @@ const updatePaymentOrder = async (payment, data) =>{
 
     let paymentActualizado = {
         data_id: payment['data.id'],
+        costoTotal: data.transaction_amount,
         paymentStatus: data.status,
         emisorTarjeta: data.payment_method.id,
         tipoDeTarjeta: data.payment_method.type,
@@ -42,11 +43,12 @@ const comprobarPaymentOrder = async (productosCarrito, email, carrito) =>{
     } else {
         
        const productoPaymentOrder = await PaymentOrderModel.findOne({usuarioEmail: email, paymentStatus: "Incompleto", carrito: false, "productos.idProducto": `${productosCarrito._id}`})
-       if(!productoPaymentOrder || ((momentoActual - Number(productoPaymentOrder.paymentOrder)) > 300000)) productosCoincidentes.push(undefined)
+       
+       if(!productoPaymentOrder || ((momentoActual - Number(productoPaymentOrder.paymentOrder)) > 300000)) return false
 
-        urlRedirect = productoPaymentOrder.redirectUrl
+       return urlRedirect = productoPaymentOrder.redirectUrl;
     }
-
+ 
     if(productosCoincidentes.includes(undefined)) return false
     return urlRedirect
 }

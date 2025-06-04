@@ -16,12 +16,14 @@ const paymentCarrito = async (req, res) => {
   let productosMapeados;
   let productosParaPreferencesMP = [];
   let sinStock = [];
+  let totalDeProductos = 0;
 
   const { nombre, apellido } = req.user;
 
   const { email } = req.body;
 
   productosCarrito = await CarritoModel.find({ email_usuario: email });
+console.log(productosCarrito.length);
 
   if (productosCarrito.length === 0) {
     return res.status(400).send({ mensaje: "Su carrito esta vacio." });
@@ -88,11 +90,13 @@ const paymentCarrito = async (req, res) => {
     });
   } else {
     body.items = productosParaPreferencesMP;
-    const productosHistorial = productosCarrito.map((e) => {
-      return (respuesta = {
-        idProducto: `${e.productos}`,
-        cantidad: e.cantidad,
-      });
+    const productosHistorial = productosParaPreferencesMP.map((e) => {
+      totalDeProductos += e.quantity
+      return {
+        idProducto: e.id,
+        precio: e.unit_price,
+        cantidad: e.quantity
+      };
     });
 
     let arrayDeConcidencias = await comprobarPaymentOrder(
@@ -120,6 +124,7 @@ const paymentCarrito = async (req, res) => {
         redirectUrl: data.init_point,
         productos: productosHistorial,
         carrito: true,
+        totalDeProductos: totalDeProductos
       });
 
       await paymentOrder.save();
@@ -190,12 +195,11 @@ const payment = async (req, res) => {
       productos: [
         {
           idProducto: producto_id,
-          cantidad: 1,
-          precioUnitario: body.items[0].unit_price,
+          precio: body.items[0].unit_price,
+          cantidad: 1
         },
       ],
     });
-
     await paymentOrder.save();
 
     return res
@@ -265,8 +269,67 @@ const confirmPayment = async (req, res) => {
   }
 };
 
+const historialDePago = async (req, res) =>{
+  const {email} = req.params;
+
+  let historialAEnviar = [];
+
+  try {
+    const historialDeCompras = await PaymentOrderModel.find({usuarioEmail: email, paymentStatus: 'approved'})
+
+    if(historialDeCompras.length <= 0) return res.status(200).send(historialAEnviar)
+
+     historialAEnviar = await Promise.all(historialDeCompras.map(async(e)=>{
+      
+      const promesasProductos = e.productos.map(async(element)=>{
+      
+        const producto = await ProductModel.findById(element.idProducto).lean();
+        
+        if (producto) {
+          return {
+            producto_id: element.idProducto,
+            nombre: producto.nombre,
+            precio: element.precio,
+            destacado: producto.destacado,
+            descuento: producto.descuento,
+            imagen: producto.imagen,
+            categoria: producto.categoria,
+            cantidad: element.cantidad
+          }
+        }
+        return {
+          producto_id: element.idProducto,
+          nombre: "No Disponible",
+            precio: element.precio,
+            destacado: "No Disponible",
+            descuento: "No Disponible",
+            imagen: "No Disponible",
+            categoria: "No Disponible",
+            cantidad: element.cantidad
+        }
+      })
+      const productosFinales = await Promise.all(promesasProductos)
+      return {
+        paymentOrder: e.paymentOrder,
+        productos: productosFinales,
+        totalDeProductos: e.totalDeProductos,
+        costo: e.costoTotal,
+        emisorTarjeta: e.emisorTarjeta,
+        tipoDeTarjeta: e.tipoDeTarjeta,
+        ultimos4Digitos: e.ultimos4DigitosTarjeta
+      }
+    }))
+
+    return res.status(200).send(historialAEnviar)
+    
+  } catch (error) {
+    return res.status(500).send({mensaje: "Error en el servidor"})
+  }
+}
+
 module.exports = {
   paymentCarrito,
   payment,
   confirmPayment,
+  historialDePago
 };
