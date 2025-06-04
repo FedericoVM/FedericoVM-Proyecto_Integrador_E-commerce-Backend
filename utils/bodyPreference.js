@@ -19,7 +19,7 @@ const bodyPreferences = (nombre, apellido, paymentNumberOrder) => {
     },
     auto_return: "approved",
     notification_url:
-      `${process.env.URI_API}`,
+      'https://cfa4-2800-810-429-829c-c552-f196-ec10-29f9.ngrok-free.app/mercadoPago/payment-confirm',
     payer: {
       name: nombre,
       surname: apellido,

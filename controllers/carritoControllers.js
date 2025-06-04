@@ -89,6 +89,9 @@ const editarProducto = async (req, res) => {
 
   try {
     let buscarProducto = await CarritoModel.findById(id);
+    
+    if(!buscarProducto) return res.status(400).send({ mensaje: "No se encontro el producto en su carrito."})
+    
     let productoEncontrado = await ProductosModel.findById(
       buscarProducto.productos
     );
@@ -108,7 +111,7 @@ const editarProducto = async (req, res) => {
 
     return res.status(200).send({ mensaje: "Se actualizo el  producto" });
   } catch (error) {
-    return res.status(400).send({ mensaje: "No se pudo hacer ningun cambio" });
+    return res.status(500).send({ mensaje: "No se pudo hacer ningun cambio" });
   }
 };
 

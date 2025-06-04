@@ -6,5 +6,6 @@ const router = express.Router();
 router.post("/paymentCarrito",autMiddleware.autorizado, PagoController.paymentCarrito);
 router.post("/payment",autMiddleware.autorizado, PagoController.payment);
 router.post("/payment-confirm", PagoController.confirmPayment);
+router.get("/payment-history/:email", autMiddleware.autorizado, PagoController.historialDePago)
 
 module.exports = router;

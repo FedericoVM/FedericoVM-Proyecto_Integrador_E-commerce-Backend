@@ -23,6 +23,12 @@ const paymentOrderSchema = Mongoose.Schema({
         required: true,
         unique: true
     },
+    totalDeProductos:
+    {
+        type: Number,
+        required: true,
+        default: 1
+    },
     paymentStatus: {
         type: String,
         required: true,
@@ -31,6 +37,10 @@ const paymentOrderSchema = Mongoose.Schema({
     productos:{
         type: Array,
         required: true
+    },
+    costoTotal:{
+        type: Number,
+        default: 0
     },
     emisorTarjeta:{
         type: String
