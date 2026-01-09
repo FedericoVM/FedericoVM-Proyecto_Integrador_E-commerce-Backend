@@ -1,4 +1,5 @@
 const FavoritoModel = require("../models/favorito");
+const ProductosModel = require("../models/product")
 
 const mostrarFavoritos = async (req, res) => {
   
@@ -7,11 +8,12 @@ const mostrarFavoritos = async (req, res) => {
   try {
     const listaFavoritos = await FavoritoModel.find({ email_usuario: email });
 
-    if (listaFavoritos.length > 0) {
-      return res.status(200).send(listaFavoritos);
-    } else {
-      return res.status(200).send({ mensaje: "No hay productos favoritos" });
-    }
+    if (listaFavoritos.length == 0)  return res.status(200).send({ mensaje: "No hay productos favoritos" });
+
+    const favoritosAFront = await Promise.all(listaFavoritos.map((producto)=> ProductosModel.findById(producto.productos)))
+
+    return res.status(200).send(favoritosAFront);
+
   } catch (error) {
     return res
       .status(500)

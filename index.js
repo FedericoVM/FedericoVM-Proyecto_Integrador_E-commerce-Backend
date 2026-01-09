@@ -25,6 +25,24 @@ app.use('/usuario',AuthUsuario);
 app.use('/favoritos', AuthFavoritos )
 app.use("/mercadoPago",AuthPago);
 
+
 app.listen(PORT,() => {
     console.log(`El servidor esta escuchando en el puerto ${PORT}`);
 } )
+
+app.use( (err, req, res, next) =>{
+    console.log('Error Atrapado', err)
+
+    const errorResponse =  {
+        message: err.message || 'Error en el servidor',
+    }
+
+    const statusCode = err.statusCode || 500;
+
+    if(err.data) {
+        errorResponse.data = err.data;
+    }
+
+    res.status(statusCode).json(errorResponse)
+
+})
