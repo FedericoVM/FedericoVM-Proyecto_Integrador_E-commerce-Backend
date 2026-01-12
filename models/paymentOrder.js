@@ -5,23 +5,25 @@ const paymentOrderSchema = Mongoose.Schema({
         type: String,
         required: true
     },
+    idDePago:{
+        type: Number,
+        required: true
+    },
     carrito:{
         type: Boolean,
-        required:true
+        required:true,
+        default: false
     },
     paymentOrder:{
         type: String,
         required: true,
         unique: true
     },
-    data_id:{
-        type: String,
-        default: "data"
-    },
-    redirectUrl: {
-        type: String,
+    totalDeProductos:
+    {
+        type: Number,
         required: true,
-        unique: true
+        default: 1
     },
     totalDeProductos:
     {

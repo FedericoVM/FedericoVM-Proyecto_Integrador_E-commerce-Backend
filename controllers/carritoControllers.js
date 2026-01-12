@@ -1,20 +1,56 @@
 const CarritoModel = require("../models/carrito");
 const ProductosModel = require("../models/product");
+const AppError = require("../utils/errors");
 
 const traerProductos = async (req, res) => {
-
   const { email } = req.user;
+  let carritoAFront = []
 
   try {
-    
     const productosCarrito = await CarritoModel.find({ email_usuario: email });
 
-    productosCarrito.length > 0
-      ? res.status(200).send(productosCarrito)
-      : res
-          .status(200)
-          .send({ mensaje: "No hay productos agregados al carrito" });
+    if(productosCarrito.length === 0) return res.status(204).send({message: "Su carrito esta vacio."})
+
+    const productosMapeadosDB = await Promise.all(productosCarrito.map((pro)=> ProductosModel.findById(pro.idProducto)))
+
+    productosCarrito.forEach((producto) => {
+      
+        if (producto) {
+          productosMapeadosDB.find((c) => {
+            
+            if (producto.idProducto == c._id) {
+              let productoCarrito = {
+                id: producto._id,
+                imagen: c.imagen,
+                nombre: c.nombre,
+                destacado: c.destacado,
+                descuento: c.descuento,
+                precio: c.precio,
+                stock: c.stock,
+                cantidad: producto.cantidad,
+                idProducto: c._id,
+                marca: c.marca
+              };
+              carritoAFront.push(productoCarrito);
+            }
+          });
+        } else {
+          let productoCarrito = {
+            id: producto._id,
+            imagen: "No Disponible",
+            nombre: "No Disponible",
+            precio: "No Disponible",
+            cantidad: 0,
+            stock: "No Disponible",
+            idProducto: producto._id
+          };
+          carritoAFront.push(productoCarrito);
+        }
+      })
+      
+    return res.status(200).send(carritoAFront)
   } catch (error) {
+    console.log(error);
     res
       .status(500)
       .send({ mensaje: "Ocurrio un error al mostrar los productos" });
@@ -22,13 +58,12 @@ const traerProductos = async (req, res) => {
 };
 
 const agregarProducto = async (req, res) => {
-
-  const {productos}  = req.body;
-  const {email} = req.user
+  const { idProducto } = req.body;
+  const { email } = req.user;
   const productoAgregar = new CarritoModel({
-    email_usuario:email,
-    productos:productos,
-    cantidad:1,
+    email_usuario: email,
+    idProducto: idProducto,
+    cantidad: 1,
   });
 
   try {
@@ -36,10 +71,10 @@ const agregarProducto = async (req, res) => {
       email_usuario: productoAgregar.email_usuario,
     });
 
-    const producto = await ProductosModel.findById(productos);
+    const producto = await ProductosModel.findById(idProducto);
 
     let productoEncontrado = usuarioEncontrado.some((usuario) => {
-      return usuario.productos === productos;
+      return usuario.idProducto === idProducto;
     });
 
     if (productoEncontrado) {
@@ -73,7 +108,7 @@ const eliminarProducto = async (req, res) => {
     await CarritoModel.findByIdAndDelete(id);
     return res
       .status(200)
-      .send({ mensaje: "El producto se elimmino del carrito" });
+      .send({ mensaje: "Se elimino el producto del carrito" });
   } catch (error) {
     return res
       .status(500)
@@ -81,37 +116,37 @@ const eliminarProducto = async (req, res) => {
   }
 };
 
-const editarProducto = async (req, res) => {
-
+const editarProducto = async (req, res, next) => {
   let { id } = req.params;
 
   let nuevaCantidad = req.body;
 
   try {
     let buscarProducto = await CarritoModel.findById(id);
-    
-    if(!buscarProducto) return res.status(400).send({ mensaje: "No se encontro el producto en su carrito."})
-    
+
+    if (!buscarProducto)
+      throw new AppError("No se encontro el producto en su carrito.", 404);
+
     let productoEncontrado = await ProductosModel.findById(
-      buscarProducto.productos
+      buscarProducto.idProducto
     );
 
-    if (
-      productoEncontrado.stock === 0 ||
-      productoEncontrado.stock < nuevaCantidad.cantidad
-    ) {
-      return res.status(200).send({ mensaje: "Sin stock o insuficiente " });
-    }
+    if (productoEncontrado.stock === 0)
+      throw new AppError("El producto no cuenta con stock.", 202);
 
-    if (nuevaCantidad > productoEncontrado.stock) {
-      return res.status(200).send({ mensaje: "No puede agregar mas cantidad. Llego al limite de stock del producto " });
+    if (nuevaCantidad.operacion === "sumar") {
+      if (productoEncontrado.stock < nuevaCantidad.cantidad)
+        throw new AppError(
+          "No puede exeder el la cantidad de stock del producto.",
+          202
+        );
     }
 
     await CarritoModel.findByIdAndUpdate(id, nuevaCantidad);
 
     return res.status(200).send({ mensaje: "Se actualizo el  producto" });
   } catch (error) {
-    return res.status(500).send({ mensaje: "No se pudo hacer ningun cambio" });
+    next(error);
   }
 };
 

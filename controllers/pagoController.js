@@ -1,335 +1,273 @@
 const CarritoModel = require("../models/carrito");
 const ProductModel = require("../models/product");
 const PaymentOrderModel = require("../models/paymentOrder");
-const { Preference, Payment } = require("mercadopago");
-const MercadoPagoConfig = require("../utils/bodyPreference");
+const { Payment } = require("mercadopago");
+const {
+  crearPagoMP,
+  crearPaymentOrder,
+  clientMP,
+} = require("../utils/crearPagoYPaymentOrder");
 const {
   updatePaymentOrder,
-  comprobarPaymentOrder,
-} = require("../utils/updatePaymentOrder");
+  verificarEstadoCarrito,
+  comprobarProductoDisponible,
+  restarProductosDb,
+  comprobarStatusDePago
+} = require("../utils/ProductsDispoCheck");
 
-const paymentCarrito = async (req, res) => {
-  const client = MercadoPagoConfig.clientMP();
+const AppError = require("../utils/errors");
 
-  const paymentNumberOrder = Date.now();
-  let productosCarrito;
-  let productosMapeados;
-  let productosParaPreferencesMP = [];
-  let sinStock = [];
-  let totalDeProductos = 0;
+const comprobarCarritoActualizado = async (req, res, next) => {
+  const { email, carritoFront } = req.body;
 
-  const { nombre, apellido } = req.user;
-
-  const { email } = req.body;
-
-  productosCarrito = await CarritoModel.find({ email_usuario: email });
-console.log(productosCarrito.length);
-
-  if (productosCarrito.length === 0) {
-    return res.status(400).send({ mensaje: "Su carrito esta vacio." });
-  }
-
-  const productosPromesas = productosCarrito.map(async (prod) => {
-    const respuesta = await ProductModel.findById(prod.productos);
-    return respuesta;
-  });
-
-  await Promise.all(productosPromesas)
-    .then((values) => {
-      productosMapeados = values;
-    })
-    .catch(() => {
-      return res
-        .status(501)
-        .send({ mensaje: "Hubo un error al procesar los productos." });
-    });
-
-  let productoNoEncontrado = productosMapeados.some((produc) => {
-    return produc === undefined;
-  });
-
-  if (productoNoEncontrado) {
-    return res.status(404).send({ mensaje: "Un producto no esta disponible." });
-  }
-
-  let productosFiltrados = productosMapeados.filter((produc) => {
-    return produc !== null;
-  });
-
-  productosCarrito.forEach((produc) => {
-    let itemsPreference = productosFiltrados.find((pro) => {
-      return produc.productos === pro._id.toString();
-    });
-    if (itemsPreference) {
-      if (
-        itemsPreference.stock > 0 &&
-        itemsPreference.stock >= produc.cantidad
-      ) {
-        let nuevoProduct = MercadoPagoConfig.crearItemsParaElBody(
-          itemsPreference,
-          produc.cantidad
-        );
-
-        return productosParaPreferencesMP.push(nuevoProduct);
-      } else {
-        sinStock.push(itemsPreference._id);
-      }
-    }
-  });
-
-  let body = MercadoPagoConfig.bodyPreferences(
-    nombre,
-    apellido,
-    paymentNumberOrder
-  );
-
-  if (sinStock.length > 0) {
-    return res.status(401).send({
-      mensaje: `Error en el pago. Los siguientes productos estan sin stock:`,
-      sinStock,
-    });
-  } else {
-    body.items = productosParaPreferencesMP;
-    const productosHistorial = productosParaPreferencesMP.map((e) => {
-      totalDeProductos += e.quantity
-      return {
-        idProducto: e.id,
-        precio: e.unit_price,
-        cantidad: e.quantity
-      };
-    });
-
-    let arrayDeConcidencias = await comprobarPaymentOrder(
-      productosCarrito,
+  try {
+    const { costoTotalCarrito } = await verificarEstadoCarrito(
       email,
-      true
+      carritoFront
     );
 
-    if (arrayDeConcidencias !== false) {
-      return res.status(200).send({ redirecttUrl: arrayDeConcidencias });
-    } else {
-      await PaymentOrderModel.findOneAndDelete({
-        usuarioEmail: email,
-        paymentStatus: "Incompleto",
-        carrito: true,
-      });
-    }
-
-    try {
-      const preference = new Preference(client);
-      const data = await preference.create({ body });
-      const paymentOrder = new PaymentOrderModel({
-        usuarioEmail: email,
-        paymentOrder: paymentNumberOrder,
-        redirectUrl: data.init_point,
-        productos: productosHistorial,
-        carrito: true,
-        totalDeProductos: totalDeProductos
-      });
-
-      await paymentOrder.save();
-
-      return res
-        .status(data.api_response.status)
-        .send({ redirecttUrl: data.init_point });
-    } catch (error) {
-      return res.status(501).send({ mensaje: "Error en el servidor" });
-    }
+    return res.status(200).send({ costoTotal: costoTotalCarrito });
+  } catch (error) {
+    next(error);
   }
 };
 
-const payment = async (req, res) => {
-  const client = MercadoPagoConfig.clientMP();
-
-  let body;
-
-  const paymentNumberOrder = Date.now();
-
-  const { email, nombre, apellido } = req.user;
-
-  const { producto_id } = req.body;
-
-  const productoEncontrado = await ProductModel.findById(producto_id);
-
-  if (productoEncontrado && productoEncontrado.stock > 0) {
-    const productoOrderPayment = await comprobarPaymentOrder(
-      productoEncontrado,
-      email,
-      false
-    );
-
-    if (productoOrderPayment !== false) {
-      return res.status(200).send({ redirecttUrl: productoOrderPayment });
-    } else {
-      await PaymentOrderModel.findOneAndDelete({
-        usuarioEmail: email,
-        paymentStatus: "Incompleto",
-        carrito: false,
-        "productos.idProducto": `${productoEncontrado._id}`,
-      });
-    };
-
-    body = MercadoPagoConfig.bodyPreferences(
-      nombre,
-      apellido,
-      paymentNumberOrder
-    );
-    let items = MercadoPagoConfig.crearItemsParaElBody(productoEncontrado, 1);
-
-    body.items.push(items);
-  } else {
-    return res.status(401).send({
-      mensaje: `No se encontro el producto o No hay stock del producto.`,
-    });
-  }
+const finalizarPagoCarrito = async (req, res, next) => {
+  const productosParaBodyPago = [];
+  const { email } = req.user;
+  const { userProducts, formData } = req.body;
 
   try {
-    const preference = new Preference(client);
-    const result = await preference.create({ body });
+    const {
+      costoTotalCarrito,
+      productosHistorial,
+      productosMapeadosCarrito,
+      totalCarritoDbProductos,
+    } = await verificarEstadoCarrito(email, userProducts.carritoFront);
 
-    const paymentOrder = new PaymentOrderModel({
-      usuarioEmail: email,
-      paymentOrder: paymentNumberOrder,
-      redirectUrl: result.init_point,
-      carrito: false,
-      productos: [
-        {
-          idProducto: producto_id,
-          precio: body.items[0].unit_price,
-          cantidad: 1
-        },
-      ],
+    userProducts.carritoFront.forEach((pro) => {
+      let productoMatch = productosMapeadosCarrito.find((product) => {
+        return pro.idProducto == product._id;
+      });
+      productosParaBodyPago.push({
+        id: productoMatch._id,
+        title: productoMatch.nombre,
+        description: productoMatch.descripcion,
+        picture_url: productoMatch.imagen,
+        quantity: pro.cantidad,
+        unit_price: productoMatch.precio,
+      });
     });
-    await paymentOrder.save();
 
-    return res
-      .status(result.api_response.status)
-      .send({ redirecttUrl: result.init_point });
+    const resultadoDePago = await crearPagoMP(
+      productosParaBodyPago,
+      formData,
+      costoTotalCarrito
+    );
+
+  if (resultadoDePago.status === "rejected" ) throw new AppError("Su compra fue rechazada, intente nuevamente mas tarde.", 404);
+
+    await crearPaymentOrder(
+      email,
+      resultadoDePago,
+      totalCarritoDbProductos,
+      productosHistorial,
+      costoTotalCarrito,
+      true
+    );
+
+    await CarritoModel.deleteMany({
+      email_usuario: email,
+    });
+
+    await comprobarStatusDePago(resultadoDePago, productosParaBodyPago, formData, costoTotalCarrito, res)
+    
   } catch (error) {
-    return res.status(501).send({ mensaje: error.message });
+    next(error);
+  }
+};
+
+const verificarProductoDisponible = async (req, res, next) => {
+  const { producto_id } = req.body;
+
+  try {
+    const { productoDb } = await comprobarProductoDisponible(producto_id);
+    return res.status(200).send({ producto: productoDb });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const comprarProducto = async (req, res, next) => {
+
+  const { email } = req.user;
+  const { producto_id, formData } = req.body;
+
+  try {
+    const { productoDb, precioFinal } = await comprobarProductoDisponible(
+      producto_id
+    );
+
+    const productoParaHistorial = [
+      {
+        idProducto: productoDb._id,
+                cantidad: 1,
+                precio: precioFinal
+      }
+    ]
+
+    let productoParaBodyPago = [
+      {
+      id: productoDb._id,
+      title: productoDb.nombre,
+      description: productoDb.descripcion,
+      picture_url: productoDb.imagen,
+      quantity: 1,
+      unit_price: precioFinal,
+    }
+  ];
+
+    const resultadoDePago = await crearPagoMP(productoParaBodyPago, formData, precioFinal)
+
+    if (resultadoDePago.status === "rejected") throw new AppError("Su compra fue rechazada, intente nuevamente mas tarde.", 404); 
+
+    crearPaymentOrder(email, resultadoDePago, 1, productoParaHistorial, precioFinal, false)
+
+    await comprobarStatusDePago(resultadoDePago, productoParaBodyPago, formData, precioFinal, res)
+    
+  } catch (error) {
+    console.log(error);
+    
+    next(error);
   }
 };
 
 const confirmPayment = async (req, res) => {
-  const client = MercadoPagoConfig.clientMP();
+  res.sendStatus(200);
+
+  const client = clientMP();
 
   const payment = req.query;
 
-  const paymentProcessed = await PaymentOrderModel.findOne({
-    data_id: payment["data.id"],
+  const paymentOrder = await PaymentOrderModel.findOne({
+    idDePago: payment["data.id"],
   });
 
-  if (paymentProcessed && paymentProcessed.data_id === payment["data.id"]) {
-    return res.sendStatus(200);
-  }
+  if (!paymentOrder) return
 
   try {
     if (payment.type === "payment") {
       const pago = new Payment(client);
       const data = await pago.get({ id: payment["data.id"] });
 
-      const paymentOrder = await PaymentOrderModel.findOne({
-        paymentOrder: data.external_reference,
-      });
+      if (!paymentOrder) return;
 
       const { additional_info } = data;
+      let productosComprados = additional_info.items;
 
       if (data.status === "approved") {
-        let productosComprados = additional_info.items;
+        if (paymentOrder.status === "in_process") {
+          updatePaymentOrder(data);
+        } else {
+          restarProductosDb(productosComprados);
+        }
+      }
 
+      if (data.status === "in_process") {
+        updatePaymentOrder(data);
+      } 
+      
+      if (data.status === "rejected") {
         for (const p of productosComprados) {
           const resultado = await ProductModel.findById(p.id);
 
           if (resultado) {
-            let num = resultado.stock - p.quantity;
-            if (num >= 0) {
-              let stockActualizado = { stock: num };
-              await ProductModel.findByIdAndUpdate(
-                resultado.id,
-                stockActualizado
-              );
-            }
+            let num = resultado.stock + p.quantity;
+            let stockActualizado = { stock: num };
+            await ProductModel.findByIdAndUpdate(
+              resultado.id,
+              stockActualizado
+            );
           }
         }
-        updatePaymentOrder(payment, data);
-        if (paymentOrder.carrito) {
-          await CarritoModel.deleteMany({
-            email_usuario: paymentOrder.usuarioEmail,
-          });
-        }
-      } else if (data.status === "in_process") {
-        updatePaymentOrder(payment, data);
-      } else if (data.status === "rejected") {
-        updatePaymentOrder(payment, data);
+        updatePaymentOrder(data);
       }
     }
-    return res.sendStatus(200);
+    return;
   } catch (error) {
-    return res.sendStatus(400);
+    return;
   }
-};
+}
 
-const historialDePago = async (req, res) =>{
-  const {email} = req.params;
+const historialDePago = async (req, res) => {
+  const { email } = req.params;
 
   let historialAEnviar = [];
 
   try {
-    const historialDeCompras = await PaymentOrderModel.find({usuarioEmail: email, paymentStatus: 'approved'})
+    const historialDeCompras = await PaymentOrderModel.find({
+      usuarioEmail: email
+    });
 
-    if(historialDeCompras.length <= 0) return res.status(200).send(historialAEnviar)
+    if (historialDeCompras.length <= 0)
+      return res.status(200).send(historialAEnviar);
 
-     historialAEnviar = await Promise.all(historialDeCompras.map(async(e)=>{
-      
-      const promesasProductos = e.productos.map(async(element)=>{
-      
-        const producto = await ProductModel.findById(element.idProducto).lean();
-        
-        if (producto) {
+    historialAEnviar = await Promise.all(
+      historialDeCompras.map(async (e) => {
+        const promesasProductos = e.productos.map(async (element) => {
+          const producto = await ProductModel.findById(
+            element.idProducto
+          ).lean();
+
+          if (producto) {
+            return {
+              producto_id: element.idProducto,
+              nombre: producto.nombre,
+              precio: element.precio,
+              destacado: producto.destacado,
+              descuento: producto.descuento,
+              imagen: producto.imagen,
+              categoria: producto.categoria,
+              cantidad: element.cantidad,
+            };
+          }
           return {
             producto_id: element.idProducto,
-            nombre: producto.nombre,
-            precio: element.precio,
-            destacado: producto.destacado,
-            descuento: producto.descuento,
-            imagen: producto.imagen,
-            categoria: producto.categoria,
-            cantidad: element.cantidad
-          }
-        }
-        return {
-          producto_id: element.idProducto,
-          nombre: "No Disponible",
+            nombre: "No Disponible",
             precio: element.precio,
             destacado: "No Disponible",
             descuento: "No Disponible",
             imagen: "No Disponible",
             categoria: "No Disponible",
-            cantidad: element.cantidad
-        }
-      })
-      const productosFinales = await Promise.all(promesasProductos)
-      return {
-        paymentOrder: e.paymentOrder,
-        productos: productosFinales,
-        totalDeProductos: e.totalDeProductos,
-        costo: e.costoTotal,
-        emisorTarjeta: e.emisorTarjeta,
-        tipoDeTarjeta: e.tipoDeTarjeta,
-        ultimos4Digitos: e.ultimos4DigitosTarjeta
-      }
-    }))
+            cantidad: element.cantidad,
+          };
+        });
 
-    return res.status(200).send(historialAEnviar)
-    
+        const productosFinales = await Promise.all(promesasProductos);
+        return {
+          paymentOrder: e.paymentOrder,
+          paymentStatus: e.paymentStatus,
+          productos: productosFinales,
+          totalDeProductos: e.totalDeProductos,
+          costo: e.costoTotal,
+          emisorTarjeta: e.emisorTarjeta,
+          tipoDeTarjeta: e.tipoDeTarjeta,
+          ultimos4Digitos: e.ultimos4DigitosTarjeta,
+        };
+      })
+    );
+
+    return res.status(200).send(historialAEnviar);
   } catch (error) {
-    return res.status(500).send({mensaje: "Error en el servidor"})
+    return res.status(500).send({ mensaje: "Error en el servidor" });
   }
-}
+};
 
 module.exports = {
-  paymentCarrito,
-  payment,
+  comprobarCarritoActualizado,
+  verificarProductoDisponible,
+  finalizarPagoCarrito,
   confirmPayment,
-  historialDePago
+  historialDePago,
+  comprarProducto,
 };

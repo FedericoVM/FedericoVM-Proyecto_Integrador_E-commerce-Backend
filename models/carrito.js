@@ -6,7 +6,7 @@ const CarritoSchema = Mongoose.Schema({
         type: String,
         required: true,
     },
-    productos: {
+    idProducto: {
         type: String,
         requeride: true
     },
