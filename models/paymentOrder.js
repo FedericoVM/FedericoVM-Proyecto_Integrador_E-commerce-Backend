@@ -25,6 +25,12 @@ const paymentOrderSchema = Mongoose.Schema({
         required: true,
         default: 1
     },
+    totalDeProductos:
+    {
+        type: Number,
+        required: true,
+        default: 1
+    },
     paymentStatus: {
         type: String,
         required: true,
